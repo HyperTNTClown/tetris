@@ -44,7 +44,21 @@ var<uniform> uniforms: Uniforms;
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var uv = in.position.xy / (uniforms.window_size.xy * vec2<f32>(1., 0.5));
 
-    //var uv = in.position.xy;
+    ////var uv = in.position.xy;
+
+    //let rand = fract(sin(dot(in.coord, vec2<f32>(12.9898, 78.233)) * uniforms.time) * 43758.5453);
+
+    //    // Calculate whether to enable the glitch effect for the current frame
+    //var enable_shift = 0.0;
+    //if (rand < 0.6) { enable_shift = .5; };
+
+    //let fixed_uv = uv + vec2<f32>((rand - 0.5) * 0.03 * enable_shift, 0.0);
+
+    //    // Retrieve the color of the pixel at the new UV coordinate
+    //var col = textureSample(tex_coords, tex_sampler, fixed_uv.xy);
+
+    //col.r = mix(col.r, textureSample(tex_coords, tex_sampler, fixed_uv + vec2<f32>(0.01*rand, 0.01*rand)).r, enable_shift);
+    //col.b = mix(col.b, textureSample(tex_coords, tex_sampler, fixed_uv + vec2<f32>(-0.01*rand, -0.01*rand)).b, enable_shift);
 
 
     //return vec4<f32>(uv.x, uv.y, 0., 1.);

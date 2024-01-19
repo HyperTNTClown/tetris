@@ -79,10 +79,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     {
         var p = ray_origin + ray_direction * t.sd;
         var d = scene(p);
-        var arr = opLimArray(p, 1.75, vec3<f32>(4., 2., 1.));
-        var board = sdBoxFrame(arr - vec3<f32>(0.0, 0.0, 6.0), vec3<f32>(1.0), 0.1, vec3<f32>(0.2, 0.3, 0.3));
-        var plane = sdPlane(p - vec3<f32>(0.0, 0.0, 6.0), vec3<f32>(0.0, 0.0, -1.0), 1., vec3<f32>(0.0, 0.0, 0.0));
-        board = opUnion(board, plane);
+        var arr = opLimArray(p, .45, vec3<f32>(4., 9., 1.));
+        //var board = sdBoxFrame(arr - vec3<f32>(0.0, 0.0, 6.0), vec3<f32>(.1875), 0.01, vec3<f32>(0.2, 0.3, 0.3));
+        var board = sdBox(arr - vec3<f32>(0.0, 0.0, 6.0), vec3<f32>(.1875, .1875, 0.001), vec3<f32>(0.2, 0.3, 0.3));
+        //var plane = sdPlane(p - vec3<f32>(0.0, 0.0, 6.0), vec3<f32>(0.0, 0.0, -1.0), 1., vec3<f32>(0.0, 0.0, 0.0));
+        //board = opUnion(board, plane);
         d = opUnion(d, board);
 
         t.col = d.col;
@@ -98,10 +99,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     var rand = (fract(sin(dot(uv, vec2<f32>(12.9898, 78.233))*uniforms.time) * 43758.5453) - 0.5) * 2.0;
 
-    col = mix(col, vec3<f32>(rand), 0.01);
+    col = mix(col, vec3<f32>(rand), 0.01*rand);
 
     var vignette = 1.0 - length(uv * vec2<f32>(1.0, aspect));
-    col *= vignette;
+    col = mix(vec3<f32>(0.0), col, vignette);
+
+    var moving_scalines = sin(uv.y * 100.0 + uniforms.time * 10.0) * 0.01;
+    col = mix(col, vec3<f32>(.75), (moving_scalines)*sin(rand*100.0 + uniforms.time * 10.0));
 
 
     //return vec4<f32>(uv.xy, col.x, 1.0);
