@@ -5,6 +5,9 @@
 //     col: vec3<f32>
 // };
 
+// Most of the SDF code is shamelessly stolen from:
+// https://gist.github.com/rozgo/a3ed36377283ce329c759f8f3ace624b
+
 fn sdBox(p : vec3 < f32>, b : vec3 < f32>, col: vec3<f32>) -> Surface {
     var surface: Surface;
     let q = abs(p) - b;
