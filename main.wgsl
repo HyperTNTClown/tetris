@@ -50,7 +50,7 @@ struct Drawable {
 }
 
 @group(1) @binding(0)
-var<storage, read> drawables: array<Drawable, 32>;
+var<storage, read> drawables: array<Drawable, 256>;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
@@ -79,11 +79,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     {
         var p = ray_origin + ray_direction * t.sd;
         var d = scene(p);
-        var arr = opLimArray(p, .45, vec3<f32>(4., 9., 1.));
-        //var board = sdBoxFrame(arr - vec3<f32>(0.0, 0.0, 6.0), vec3<f32>(.1875), 0.01, vec3<f32>(0.2, 0.3, 0.3));
-        var board = sdBox(arr - vec3<f32>(0.0, 0.0, 6.0), vec3<f32>(.1875, .1875, 0.001), vec3<f32>(0.2, 0.3, 0.3));
-        //var plane = sdPlane(p - vec3<f32>(0.0, 0.0, 6.0), vec3<f32>(0.0, 0.0, -1.0), 1., vec3<f32>(0.0, 0.0, 0.0));
-        //board = opUnion(board, plane);
+        var board = board(p);
         d = opUnion(d, board);
 
         t.col = d.col;
@@ -133,7 +129,7 @@ fn scene(p: vec3<f32>) -> Surface {
             var box = sdBox(p - box_pos, box_size, vec3<f32>(1.0, 0.0, 0.0));
             if (box.sd < res.sd) {
                 res.sd = box.sd;
-                res.col = vec3<f32>(1.0, 0., 0.);
+                res.col = vec3<f32>(d.shape_data[3], d.shape_data[4], d.shape_data[5]);
             }
         }
 
@@ -144,6 +140,22 @@ fn scene(p: vec3<f32>) -> Surface {
 
     return res;
 
+}
+
+fn board(p: vec3<f32>) -> Surface {
+    var board_pos = vec3<f32>(0.0, -0.5, 5.0);
+    var board_size = vec3<f32>(1.0, 0.5, 1.0);
+    var board = sdBox(p - tetris_pos_to_world_pos(vec2<f32>(4.0, 5.)), board_size, vec3<f32>(1.0, 0.0, 0.0));
+
+    return board;
+}
+
+fn tetris_pos_to_world_pos(pos: vec2<f32>) -> vec3<f32> {
+    var world_pos = vec3<f32>(0.0, 0.0, 0.0);
+    world_pos.x = pos.x * 0.5;
+    world_pos.y = pos.y * 0.5;
+    world_pos.z = 6.0;
+    return world_pos;
 }
 
 

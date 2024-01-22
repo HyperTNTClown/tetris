@@ -512,12 +512,18 @@ unsafe impl bytemuck::Zeroable for Uniforms {}
 unsafe impl bytemuck::Pod for Uniforms {}
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Default)]
-struct Drawables([Drawable; 32]);
+#[derive(Copy, Clone, Debug)]
+struct Drawables([Drawable; 256]);
 
 impl Drawables {
     fn as_bytes(&self) -> &[u8] {
         bytemuck::bytes_of(&self.0)
+    }
+}
+
+impl Default for Drawables {
+    fn default() -> Self {
+        Self([Default::default(); 256])
     }
 }
 

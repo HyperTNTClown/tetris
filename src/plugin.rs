@@ -1,4 +1,4 @@
-use crate::components::{Drawable, Updated};
+use crate::components::{Drawable, Tetromino, Updated};
 use crate::render::{render, render_events, Renderer};
 use bevy::app::{App, MainScheduleOrder, PostUpdate, Startup};
 use bevy::ecs::schedule::{ExecutorKind, ScheduleLabel};
@@ -42,25 +42,9 @@ fn setup_rendering(mut world: &mut World) {
 
     let renderer = Renderer::new(window);
     world.insert_resource(renderer);
-    world
-        .spawn(Drawable {
-            shape: 2,
-            position: [0., 0., 6.],
-            shape_data: [0.2, 0.2, 0.001, 0.0, 0.0, 0.0, 0.0, 0.0],
-        })
-        .insert(Updated(true));
-    //world.spawn(Drawable {
-    //    shape: 1,
-    //    position: [-3., 0., 0.],
-    //    shape_data: [2.; 8],
-    //    ..default()
-    //}).insert(Updated(true));
-    //world.spawn(Drawable {
-    //    shape: 1,
-    //    position: [3., 0., 0.],
-    //    shape_data: [2.; 8],
-    //    ..default()
-    //}).insert(Updated(true));
+    Tetromino::O.as_drawables().iter().for_each(|d| {
+        world.spawn(*d).insert(Updated(true));
+    });
 
     world.insert_resource(MovePieceTimer(Timer::from_seconds(
         1.0,
@@ -83,6 +67,7 @@ fn move_piece(
         for (mut drawable, mut updated) in query.iter_mut() {
             if !updated.0 {
                 drawable.position[1] -= 0.2 * 0.4 * 5.0;
+                println!("Move piece {:?}", drawable.position);
                 updated.0 = true;
             }
         }

@@ -143,3 +143,31 @@ fn sdBoxFrame(p: vec3<f32>, b: vec3<f32>, e: f32, col: vec3<f32>) -> Surface {
 fn palette(t : f32) -> vec3 < f32> {
     return .3+.2 * cos(4.28318 * (t + vec3(.5, .216, .757)));
 }
+
+fn opRevolution(p: vec3<f32>, o: f32) -> vec2<f32> {
+  return vec2<f32>(length(p.xz) - o, p.y);
+}
+
+fn opExtrusion(d: Surface, z: f32, h: f32) -> Surface {
+    var surface: Surface;
+    let w = vec2<f32>(d.sd, abs(z) - h);
+    surface.sd = min(max(w.x, w.y), 0.) + length(max(w, vec2<f32>(0.)));
+    surface.col = d.col;
+    return surface;
+}
+
+fn sd2dBox(p: vec2 < f32>, b : vec2 < f32>, col: vec3<f32>) -> Surface {
+    var surface: Surface;
+    let q = abs(p) - b;
+    surface.sd = length(max(q, vec2 < f32 > (0.))) + min(max(q.x, q.y), 0.);
+    surface.col = col;
+    return surface;
+}
+
+fn repeat_rect(e: vec2<f32>, size: vec2<f32>, s: f32 ) -> vec2<f32>
+{
+    var p = abs(e/s) - (size*0.5 - 0.5);
+    if (p.x > p.y) { p = p.yx; }
+    p.y -= min(0.0, round(p.y));
+    return p*s;
+}
