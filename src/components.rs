@@ -4,6 +4,9 @@ use bevy::prelude::*;
 #[derive(Component)]
 pub struct Updated(pub(crate) bool);
 
+#[derive(Component)]
+pub struct Locked;
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Component)]
 pub struct Drawable {
@@ -66,14 +69,26 @@ enum RotationDirection {
 // Therefore no creativity is needed
 
 #[derive(Resource)]
-struct TetrisGame {
+pub struct TetrisGame {
     /// Playfield is 10×40, where rows above 20 are hidden or obstructed by the field frame to trick the player into thinking it's 10×20.
     /// | Guidelines
-    pub field: [[Option<Drawable>; 10]; 40],
+    pub field: [[Option<Entity>; 10]; 40],
     pub next: Option<Tetromino>,
     pub hold: Option<Tetromino>,
     pub score: u32,
     pub level: u32,
+}
+
+impl Default for TetrisGame {
+    fn default() -> Self {
+        TetrisGame {
+            field: [[None; 10]; 40],
+            next: None,
+            hold: None,
+            score: 0,
+            level: 0,
+        }
+    }
 }
 
 #[derive(Component, Debug)]

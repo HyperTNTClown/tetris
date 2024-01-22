@@ -1,13 +1,12 @@
-use crate::components::{Drawable, Tetromino, Updated};
+use crate::components::{Drawable, Locked, TetrisGame, Tetromino, Updated};
 use crate::render::{render, render_events, Renderer};
 use bevy::app::{App, MainScheduleOrder, PostUpdate, Startup};
 use bevy::ecs::schedule::{ExecutorKind, ScheduleLabel};
-use bevy::prelude::{
-    Input, IntoSystemConfigs, KeyCode, Query, Res, ResMut, Resource, Schedule, Time, Timer, Update,
-    World,
-};
+use bevy::prelude::{Commands, Entity, Input, IntoSystemConfigs, KeyCode, Last, Query, Res, ResMut, Resource, Schedule, Time, Timer, Update, With, Without, World};
 use bevy::time::TimerMode;
 use bevy::winit::{winit_runner, WinitWindows};
+use bevy_turborand::{DelegatedRng, GlobalRng};
+use bevy_turborand::prelude::{RngPlugin};
 use winit::window::Window;
 
 pub(crate) struct Plugin;
@@ -23,8 +22,12 @@ impl bevy::app::Plugin for Plugin {
         render_sched.add_systems(render.after(render_events));
 
         app.add_schedule(render_sched)
+            .add_plugins(RngPlugin::default())
             .add_systems(Startup, setup_rendering)
             .add_systems(Update, move_piece)
+            .add_systems(PostUpdate, spawn_new_piece)
+            .add_systems(Last, lock_pieces)
+            .insert_resource(TetrisGame::default())
             .set_runner(|mut app| winit_runner(app));
 
         let mut order = app.world.resource_mut::<MainScheduleOrder>();
@@ -56,7 +59,8 @@ fn setup_rendering(mut world: &mut World) {
 struct MovePieceTimer(Timer);
 
 fn move_piece(
-    mut query: Query<(&mut Drawable, &mut Updated)>,
+    mut query: Query<(&mut Drawable, &mut Updated), Without<Locked>>,
+    mut game: ResMut<TetrisGame>,
     time: Res<Time>,
     mut timer: ResMut<MovePieceTimer>,
     input: Res<Input<KeyCode>>,
@@ -66,7 +70,10 @@ fn move_piece(
     if timer.0.finished() {
         for (mut drawable, mut updated) in query.iter_mut() {
             if !updated.0 {
-                drawable.position[1] -= 0.2 * 0.4 * 5.0;
+                //let field_under = game.field[drawable.position[0] as usize].get(drawable.position[1] as usize - 1);
+                // We should not have to check if field is of invalid index, as we should lock all pieces that are at the bottom beforehand
+                //let field_under = field_under.unwrap();
+                drawable.position[1] -= 1.0;
                 println!("Move piece {:?}", drawable.position);
                 updated.0 = true;
             }
@@ -115,6 +122,33 @@ fn move_piece(
                 drawable.position[1] += 1.;
                 updated.0 = true;
             }
+        }
+    }
+}
+
+fn spawn_new_piece(mut commands: Commands, mut query: Query<(&mut Drawable, &mut Updated, Entity), Without<Locked>>, mut rand: ResMut<GlobalRng>) {
+    if query.is_empty() {
+        let num = rand.u8(0..7);
+        let tetromino = match num {
+            0 => Tetromino::I,
+            1 => Tetromino::O,
+            2 => Tetromino::T,
+            3 => Tetromino::S,
+            4 => Tetromino::Z,
+            5 => Tetromino::J,
+            6 => Tetromino::L,
+            _ => unreachable!()
+        };
+        tetromino.as_drawables().iter().for_each(|d| {
+            commands.spawn(*d).insert(Updated(true));
+        });
+    }
+}
+
+fn lock_pieces(mut commands: Commands, query: Query<(Entity, &Drawable), Without<Locked>>) {
+    for (entity, drawable) in query.iter() {
+        if drawable.position[1] == 0. {
+            commands.get_entity(entity).unwrap().insert(Locked);
         }
     }
 }

@@ -111,7 +111,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 fn scene(p: vec3<f32>) -> Surface {
     var res: Surface;
     res.sd = 1000.;
-    for (var i = 0; i < 32; i = i + 1) {
+    for (var i = 0; i < 256; i = i + 1) {
         var d = drawables[i];
         if (d.shape == u32(0)) {
             return res;
@@ -124,8 +124,8 @@ fn scene(p: vec3<f32>) -> Surface {
                 res.col = vec3<f32>(1.0, 0., 0.);
             }
         } else if (d.shape == u32(2)) {
-            var box_pos = d.position;
-            var box_size = vec3<f32>(d.shape_data[0], d.shape_data[1], d.shape_data[2]);
+            var box_pos = tetris_pos_to_world_pos(d.position.xy);
+            var box_size = vec3<f32>(0.125, 0.125, .1);
             var box = sdBox(p - box_pos, box_size, vec3<f32>(1.0, 0.0, 0.0));
             if (box.sd < res.sd) {
                 res.sd = box.sd;
@@ -143,18 +143,32 @@ fn scene(p: vec3<f32>) -> Surface {
 }
 
 fn board(p: vec3<f32>) -> Surface {
-    var board_pos = vec3<f32>(0.0, -0.5, 5.0);
-    var board_size = vec3<f32>(1.0, 0.5, 1.0);
-    var board = sdBox(p - tetris_pos_to_world_pos(vec2<f32>(4.0, 5.)), board_size, vec3<f32>(1.0, 0.0, 0.0));
+    var field_size = vec3<f32>(0.125, 0.125, 0.01);
+    var b : Surface;
+    b.sd = 1000.;
+    for (var i = 0.; i < 10.; i = i + 1.) {
+        for (var j = 0.; j < 20.; j = j + 1.) {
+            var pos = vec2<f32>(i, j);
+            var board_pos = tetris_pos_to_world_pos(pos);
+            var board = sdBox(p - board_pos, field_size, vec3<f32>(.25, 0.3, 0.4));
+            b = opUnion(b, board);
+        }
+    }
 
-    return board;
+    return b;
 }
 
+/// 10 x 20 grid for tetris
+/// algined bottom left corner at 0,0
+/// each block is 0.125 x 0.125
+/// small offset between blocks of 0.025
 fn tetris_pos_to_world_pos(pos: vec2<f32>) -> vec3<f32> {
-    var world_pos = vec3<f32>(0.0, 0.0, 0.0);
-    world_pos.x = pos.x * 0.5;
-    world_pos.y = pos.y * 0.5;
-    world_pos.z = 6.0;
+    // Centered - finally
+    var board_origin = vec3<f32>(-1.5, -3.125, 5.0);
+    var grid_field_size = vec3<f32>(0.125, 0.125, 0.0);
+    var grid_field_offset = vec3<f32>(0.2, 0.2, 0.0);
+
+    var world_pos = board_origin + vec3<f32>(pos.x, pos.y, 0.0) * grid_field_size + vec3<f32>(pos.x, pos.y, 0.0) * grid_field_offset;
     return world_pos;
 }
 

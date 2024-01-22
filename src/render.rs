@@ -1,4 +1,4 @@
-use crate::components::{Drawable, Updated};
+use crate::components::{Drawable, Locked, Updated};
 use bevy::ecs::system::Resource;
 use bevy::prelude::{Commands, EventReader, Query, Res, ResMut};
 use bevy::tasks::block_on;
@@ -7,10 +7,7 @@ use bevy::window::{RequestRedraw, WindowResized};
 use std::thread;
 use std::time::{Duration, Instant};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
-use wgpu::{
-    BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
-    BufferBindingType, BufferUsages, SamplerBindingType, ShaderStages, TextureDimension,
-};
+use wgpu::{BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BufferAddress, BufferBindingType, BufferUsages, SamplerBindingType, ShaderStages, TextureDimension};
 use wgsl_preprocessor::ShaderBuilder;
 use winit::dpi::LogicalSize;
 use winit::window::Window;
@@ -535,6 +532,7 @@ pub fn render(
     mut renderer: ResMut<Renderer>,
     time: Res<Time<Fixed>>,
     mut drawables: Query<(&Drawable, &mut Updated)>,
+    lockeds: Query<&Locked>,
     mut commands: Commands,
 ) {
     static mut FRAME_COUNT: u32 = 0;
@@ -569,9 +567,11 @@ pub fn render(
         .collect::<Vec<&[u8]>>()
         .concat();
     if !e.is_empty() {
+        let offset = lockeds.iter().count() * std::mem::size_of::<Drawable>();
+
         renderer
             .queue
-            .write_buffer(&renderer.drawables_buffer, 0, e.as_slice());
+            .write_buffer(&renderer.drawables_buffer, offset as u64, e.as_slice());
     }
 
     renderer
