@@ -1,13 +1,13 @@
-use crate::components::{Drawable, Locked, Updated};
+use crate::components::{Drawable, Locked, Tetr, Updated};
 use bevy::ecs::system::Resource;
-use bevy::prelude::{Commands, EventReader, Query, Res, ResMut};
+use bevy::prelude::{Commands, EventReader, Has, Query, Res, ResMut};
 use bevy::tasks::block_on;
 use bevy::time::{Fixed, Time};
 use bevy::window::{RequestRedraw, WindowResized};
 use std::thread;
 use std::time::{Duration, Instant};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
-use wgpu::{BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BufferAddress, BufferBindingType, BufferUsages, SamplerBindingType, ShaderStages, TextureDimension};
+use wgpu::{BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BufferBindingType, BufferUsages, SamplerBindingType, ShaderStages, TextureDimension};
 use wgsl_preprocessor::ShaderBuilder;
 use winit::dpi::LogicalSize;
 use winit::window::Window;
@@ -531,9 +531,8 @@ unsafe impl bytemuck::Pod for Drawables {}
 pub fn render(
     mut renderer: ResMut<Renderer>,
     time: Res<Time<Fixed>>,
-    mut drawables: Query<(&Drawable, &mut Updated)>,
-    lockeds: Query<&Locked>,
-    mut commands: Commands,
+    mut tetrs: Query<(&Tetr, &mut Updated, Has<Locked>)>,
+    mut _commands: Commands,
 ) {
     static mut FRAME_COUNT: u32 = 0;
     static mut LAST_TIME: f32 = 0.0;
@@ -550,24 +549,23 @@ pub fn render(
         }
     }
 
-    let vec = drawables
+    let vec = tetrs
         .iter()
-        .filter(|e| e.1 .0)
+        .filter(|e| e.1.0)
         .map(|e| e.0)
-        .collect::<Vec<&Drawable>>();
-
-    for (i, drawable) in vec.iter().enumerate() {
-        renderer.drawables.0[i] = **drawable;
-    }
+        .collect::<Vec<&Tetr>>();
 
     let e = vec
         .iter()
+        .map(|e| e.as_drawables())
+        .flatten()
         .filter(|e| e.shape != 0)
-        .map(|d| d.as_bytes())
-        .collect::<Vec<&[u8]>>()
-        .concat();
+        .map(|d| d.as_bytes().to_vec())
+        .flatten()
+        .collect::<Vec<u8>>();
+
     if !e.is_empty() {
-        let offset = lockeds.iter().count() * std::mem::size_of::<Drawable>();
+        let offset = tetrs.iter().filter(|e| e.2).map(|e| e.0.offset()).sum::<u64>();
 
         renderer
             .queue
@@ -585,7 +583,7 @@ pub fn render(
         thread::sleep(frame_time - elapsed_time);
     }
 
-    for mut e in drawables.iter_mut() {
+    for mut e in tetrs.iter_mut() {
         e.1 .0 = false;
     }
 }

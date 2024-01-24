@@ -1,4 +1,3 @@
-use std::ops::Deref;
 use bevy::prelude::*;
 
 #[derive(Component)]
@@ -44,9 +43,10 @@ impl Default for Drawable {
 unsafe impl bytemuck::Zeroable for Drawable {}
 unsafe impl bytemuck::Pod for Drawable {}
 
-struct Position {
-    x: i32,
-    y: i32,
+#[derive(Clone, Debug)]
+pub struct Position {
+    pub x: i32,
+    pub y: i32,
 }
 
 #[derive(Debug)]
@@ -72,7 +72,7 @@ enum RotationDirection {
 pub struct TetrisGame {
     /// Playfield is 10×40, where rows above 20 are hidden or obstructed by the field frame to trick the player into thinking it's 10×20.
     /// | Guidelines
-    pub field: [[Option<Entity>; 10]; 40],
+    pub field: [[bool; 10]; 40],
     pub next: Option<Tetromino>,
     pub hold: Option<Tetromino>,
     pub score: u32,
@@ -82,7 +82,7 @@ pub struct TetrisGame {
 impl Default for TetrisGame {
     fn default() -> Self {
         TetrisGame {
-            field: [[None; 10]; 40],
+            field: [[false; 10]; 40],
             next: None,
             hold: None,
             score: 0,
@@ -134,6 +134,8 @@ impl Tetromino {
     /// Immediately drop one space if no existing Block is in its path
     /// | Guidelines
     // TODO: we can potentially switch the vec for a custom struct, but that's for later
+    //       Okay, maybe we should, as that would be wayyyy easier to work with,
+    //       but that's for later
     pub fn start_positions(&self) -> Vec<Position> {
         match self {
             Tetromino::I => {
@@ -207,7 +209,7 @@ impl Tetromino {
     /// | Guidelines
     pub fn try_basic_rotation(
         &self,
-        positions: Vec<Position>,
+        _positions: Vec<Position>,
         current_rotation: Rotation,
         rotation_direction: RotationDirection
     ) -> Option<Vec<Position>> {
@@ -232,4 +234,35 @@ impl Tetromino {
         drawables
     }
 
+}
+
+#[derive(Component)]
+pub struct Tetr {
+    pub positions: Vec<Position>,
+    pub rotation: Rotation,
+    pub tetromino: Tetromino,
+}
+
+impl Tetr {
+    pub fn new(tetromino: Tetromino) -> Self {
+        let positions = tetromino.start_positions();
+        Tetr {
+            positions,
+            rotation: Rotation::ZERO,
+            tetromino,
+        }
+    }
+
+    pub fn as_drawables(&self) -> Vec<Drawable> {
+        let mut drawables = self.tetromino.as_drawables();
+        drawables.iter_mut().enumerate().for_each(|(i, d)| {
+            d.position[0] = self.positions[i].x as f32;
+            d.position[1] = self.positions[i].y as f32;
+        });
+        drawables
+    }
+
+    pub fn offset(&self) -> u64 {
+        std::mem::size_of::<Drawable>() as u64 * self.positions.len() as u64
+    }
 }

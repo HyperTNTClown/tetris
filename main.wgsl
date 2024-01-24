@@ -56,11 +56,13 @@ var<storage, read> drawables: array<Drawable, 256>;
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let aspect = uniforms.window_size.x / uniforms.window_size.y;
 
-    var uv = in.coord.xy;
+    //var uv = in.coord.xy;
 
-    uv.y = .5 - uv.y;
-    uv = uv * 2. - vec2<f32>(1., 0.5);
-    uv.x *= aspect;
+    //uv.y = .5 - uv.y;
+    //uv = uv * 2. - vec2<f32>(1., 0.5);
+    //uv.x *= aspect;
+
+    var uv = (vec2<f32>(in.coord.x, .5 - in.coord.y) * 2. - vec2<f32>(1., 0.5)) * aspect;
 
     // uv.y = .5 - uv.y;
     // uv = uv * 2. - vec2<f32>(1., 0.5);
