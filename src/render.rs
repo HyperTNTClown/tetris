@@ -1,4 +1,4 @@
-use crate::components::{Drawable, Locked, Tetr, Updated};
+use crate::components::{BufferUpdate, Drawable, Locked, Tetr, Updated};
 use bevy::ecs::system::Resource;
 use bevy::prelude::{Commands, EventReader, Has, Query, Res, ResMut};
 use bevy::tasks::block_on;
@@ -532,6 +532,7 @@ pub fn render(
     mut renderer: ResMut<Renderer>,
     time: Res<Time<Fixed>>,
     mut tetrs: Query<(&Tetr, &mut Updated, Has<Locked>)>,
+    mut buffer_update: ResMut<BufferUpdate>,
     mut _commands: Commands,
 ) {
     static mut FRAME_COUNT: u32 = 0;
@@ -549,11 +550,18 @@ pub fn render(
         }
     }
 
-    let vec = tetrs
-        .iter()
-        .filter(|e| e.1.0)
-        .map(|e| e.0)
-        .collect::<Vec<&Tetr>>();
+    let vec = match buffer_update.0 {
+        false => tetrs
+            .iter()
+            .filter(|e| e.1.0)
+            .map(|e| e.0)
+            .collect::<Vec<&Tetr>>(),
+        true => tetrs
+            .iter()
+            .map(|e| e.0)
+            .collect::<Vec<&Tetr>>()
+    };
+
 
     let e = vec
         .iter()
@@ -565,11 +573,23 @@ pub fn render(
         .collect::<Vec<u8>>();
 
     if !e.is_empty() {
-        let offset = tetrs.iter().filter(|e| e.2).map(|e| e.0.offset()).sum::<u64>();
+        match buffer_update.0 {
+            false => {
+                let offset = tetrs.iter().filter(|e| e.2).map(|e| e.0.offset()).sum::<u64>();
 
-        renderer
-            .queue
-            .write_buffer(&renderer.drawables_buffer, offset as u64, e.as_slice());
+                renderer
+                    .queue
+                    .write_buffer(&renderer.drawables_buffer, offset as u64, e.as_slice());
+            },
+            true => {
+                // fill e with 0s until size of buffer is reached to overwrite old data
+                let mut e = e;
+                e.resize(renderer.drawables_buffer.size() as usize, 0);
+                renderer
+                    .queue
+                    .write_buffer(&renderer.drawables_buffer, 0, e.as_slice());
+            }
+        }
     }
 
     renderer
@@ -586,6 +606,7 @@ pub fn render(
     for mut e in tetrs.iter_mut() {
         e.1 .0 = false;
     }
+    buffer_update.0 = false;
 }
 
 pub fn render_events(

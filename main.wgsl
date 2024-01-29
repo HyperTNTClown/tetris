@@ -127,7 +127,7 @@ fn scene(p: vec3<f32>) -> Surface {
             }
         } else if (d.shape == u32(2)) {
             var box_pos = tetris_pos_to_world_pos(d.position.xy);
-            var box_size = vec3<f32>(0.125, 0.125, .1);
+            var box_size = vec3<f32>(0.125, 0.125, .05);
             var box = sdBox(p - box_pos, box_size, vec3<f32>(1.0, 0.0, 0.0));
             if (box.sd < res.sd) {
                 res.sd = box.sd;

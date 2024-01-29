@@ -1,5 +1,8 @@
 use bevy::prelude::*;
 
+#[derive(Resource)]
+pub struct BufferUpdate(pub(crate) bool);
+
 #[derive(Component)]
 pub struct Updated(pub(crate) bool);
 
@@ -254,11 +257,28 @@ impl Tetr {
     }
 
     pub fn as_drawables(&self) -> Vec<Drawable> {
-        let mut drawables = self.tetromino.as_drawables();
-        drawables.iter_mut().enumerate().for_each(|(i, d)| {
-            d.position[0] = self.positions[i].x as f32;
-            d.position[1] = self.positions[i].y as f32;
-        });
+        // TODO: need to implement fetching Drawables from Position Vec in order to make partial Tetrs possible once rows get removed
+        //let mut drawables = self.tetromino.as_drawables();
+        //drawables.iter_mut().enumerate().for_each(|(i, d)| {
+        //    d.position[0] = self.positions[i].x as f32;
+        //    d.position[1] = self.positions[i].y as f32;
+        //});
+        //drawables
+
+        let mut drawables = Vec::new();
+        for position in self.positions.iter() {
+            let mut d = Drawable::new(position.x as isize, position.y as isize, 6, Some(2));
+            let mut e = d.shape_data.chunks_mut(3);
+            let f = e.next().unwrap().as_mut_ptr().cast::<[f32; 3]>();
+            let g = e.next().unwrap().as_mut_ptr().cast::<[f32; 3]>();
+            // well that is honestly unnecessary as the constructor can accept shape_data, but I wanted to try this out...
+            // Will probably change this later
+            unsafe {
+                std::ptr::copy([0.5f32, 0.5f32, 0.5f32].as_mut_ptr().cast::<[f32; 3]>(), f, 1);
+                std::ptr::copy(self.tetromino.color().as_mut_ptr().cast::<[f32; 3]>(), g, 1);
+            }
+            drawables.push(d);
+        }
         drawables
     }
 

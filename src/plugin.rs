@@ -1,8 +1,9 @@
-use crate::components::{Drawable, Locked, Position, Tetr, TetrisGame, Tetromino, Updated};
+use crate::components::{BufferUpdate, Drawable, Locked, Position, Tetr, TetrisGame, Tetromino, Updated};
 use crate::render::{render, render_events, Renderer};
-use bevy::app::{App, MainScheduleOrder, PostUpdate, Startup};
+use bevy::app::{App, DynEq, MainScheduleOrder, PostUpdate, Startup};
 use bevy::ecs::schedule::{ExecutorKind, ScheduleLabel};
-use bevy::prelude::{Commands, Entity, Input, IntoSystemConfigs, KeyCode, Last, Query, Res, ResMut, Resource, Schedule, Time, Timer, Update, With, Without, World};
+use bevy::prelude::*;
+use bevy::reflect::List;
 use bevy::time::TimerMode;
 use bevy::winit::{winit_runner, WinitWindows};
 use bevy_turborand::{DelegatedRng, GlobalRng};
@@ -29,6 +30,7 @@ impl bevy::app::Plugin for Plugin {
             .add_systems(PostUpdate, spawn_new_piece)
             .add_systems(Last, lock_pieces)
             .insert_resource(TetrisGame::default())
+            .insert_resource(BufferUpdate(false))
             .set_runner(|mut app| winit_runner(app));
 
         let mut order = app.world.resource_mut::<MainScheduleOrder>();
@@ -52,6 +54,8 @@ fn setup_rendering(mut world: &mut World) {
         1.0,
         TimerMode::Repeating,
     )));
+
+    info!("Rendering is set up!");
 }
 
 #[derive(Resource)]
@@ -114,12 +118,12 @@ fn move_piece(
             }
         }
     }
+
 }
 
 fn spawn_new_piece(mut commands: Commands, mut query: Query<(&mut Tetr, &mut Updated, Entity), Without<Locked>>, mut rand: ResMut<GlobalRng>) {
     if query.is_empty() {
-        let num = rand.u8(0..7);
-        let tetromino = match num {
+        let tetromino = match rand.u8(0..7) {
             0 => Tetromino::I,
             1 => Tetromino::O,
             2 => Tetromino::T,
@@ -129,7 +133,8 @@ fn spawn_new_piece(mut commands: Commands, mut query: Query<(&mut Tetr, &mut Upd
             6 => Tetromino::L,
             _ => unreachable!()
         };
-        commands.spawn(Tetr::new(tetromino)).insert(Updated(true));
+        commands.spawn(Tetr::new(Tetromino::O)).insert(Updated(true)); // DEBUG
+        //commands.spawn(Tetr::new(tetromino)).insert(Updated(true));
     }
 }
 
@@ -137,10 +142,32 @@ fn check_field_under(game: &TetrisGame, positions: &Vec<Position>) -> bool {
     positions.iter().any(|p| p.y == 0 || game.field[p.y as usize - 1usize][p.x as usize])
 }
 
-fn update_board(mut game: ResMut<TetrisGame>, tetr: Query<&Tetr, With<Locked>>) {
+fn update_board(mut game: ResMut<TetrisGame>, mut tetr: Query<&mut Tetr, With<Locked>>, mut buffer_update: ResMut<BufferUpdate>) {
     for position in tetr.iter().flat_map(|t| t.positions.iter()) {
         game.field[position.y as usize][position.x as usize] = true;
     }
+
+    // remove full rows
+    // TODO: Shift the rows above down
+    let mut row = 0;
+    while row < game.field.len() {
+        if game.field[row].iter().all(|&b| b) {
+            game.field[row] = [false; 10];
+            // remove matching positions from all tetrs
+            for mut tetr in tetr.iter_mut() {
+                tetr.positions.retain(|p| p.y != row as u32 as i32);
+            }
+            buffer_update.0 = true;
+        }
+        row+=1;
+    }
+
+    // fuuck we need to remove the locked drawables to make it work...
+    // And then there also is the buffer where we have written to sequentially,
+    // so we actually either need to shift inside the buffer or just
+    // simply overwrite it completely (performance vs simplicity)
+    // TODO: implement this (probably just overwrite the buffer each time... for now)
+    //       - Shouldn't be too performance heavy, as we only have to do this when a row is cleared
 }
 
 // TODO: might need some work as the player might want to slide the piece to the left or right when touching the ground
