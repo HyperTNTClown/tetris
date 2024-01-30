@@ -28,6 +28,17 @@ impl Drawable {
             ..default()
         }
     }
+
+    pub fn with_shape_data(x: isize, y: isize, z: isize, shape_data: [f32; 8], shape: Option<u32>) -> Self {
+        let shape = shape.unwrap_or(0);
+        Drawable {
+            position: [x as f32, y as f32, z as f32],
+            shape_data,
+            shape,
+            ..default()
+        }
+    }
+
     pub(crate) fn as_bytes(&self) -> &[u8] {
         bytemuck::bytes_of(self)
     }
@@ -212,26 +223,223 @@ impl Tetromino {
     /// | Guidelines
     pub fn try_basic_rotation(
         &self,
-        _positions: Vec<Position>,
-        current_rotation: Rotation,
+        positions: &Vec<Position>,
+        current_rotation: &Rotation,
         rotation_direction: RotationDirection
     ) -> Option<Vec<Position>> {
-        todo!("try_basic_rotation, {:?}, {:?}, {:?}", self, current_rotation, rotation_direction)
+        let mut new_positions = positions.clone();
+        match self {
+            Tetromino::I => {
+                match current_rotation {
+                    Rotation::ZERO => {
+                        new_positions[0].x += 2;
+                        new_positions[0].y += 1;
+                        new_positions[1].x += 1;
+                        new_positions[2].y -= 1;
+                        new_positions[3].x -= 1;
+                        new_positions[3].y -= 2;
+                    }
+                    Rotation::NINETY => {
+                        new_positions[0].x += 1;
+                        new_positions[0].y -= 2;
+                        new_positions[1].y -= 1;
+                        new_positions[2].x -= 1;
+                        new_positions[3].x -= 2;
+                        new_positions[3].y += 1;
+                    }
+                    Rotation::ONE_EIGHTY => {
+                        new_positions[0].x -= 2;
+                        new_positions[0].y -= 1;
+                        new_positions[1].x -= 1;
+                        new_positions[2].y += 1;
+                        new_positions[3].x += 1;
+                        new_positions[3].y += 2;
+                    }
+                    Rotation::TWO_HUNDRED_SEVENTY => {
+                        new_positions[0].x -= 1;
+                        new_positions[0].y += 2;
+                        new_positions[1].y += 1;
+                        new_positions[2].x += 1;
+                        new_positions[3].x += 2;
+                        new_positions[3].y -= 1;
+                    }
+                }
+            }
+            Tetromino::O => {}
+            Tetromino::T => {
+                match current_rotation {
+                    Rotation::ZERO => {
+                        new_positions[0].x += 1;
+                        new_positions[0].y += 1;
+                        new_positions[2].x -= 1;
+                        new_positions[2].y -= 1;
+                        new_positions[3].x += 1;
+                        new_positions[3].y -= 1;
+                    }
+                    Rotation::NINETY => {
+                        new_positions[0].x += 1;
+                        new_positions[0].y -= 1;
+                        new_positions[2].x -= 1;
+                        new_positions[2].y += 1;
+                        new_positions[3].x -= 1;
+                        new_positions[3].y -= 1;
+                    }
+                    Rotation::ONE_EIGHTY => {
+                        new_positions[0].x -= 1;
+                        new_positions[0].y -= 1;
+                        new_positions[2].x += 1;
+                        new_positions[2].y += 1;
+                        new_positions[3].x -= 1;
+                        new_positions[3].y += 1;
+                    }
+                    Rotation::TWO_HUNDRED_SEVENTY => {
+                        new_positions[0].x -= 1;
+                        new_positions[0].y += 1;
+                        new_positions[2].x += 1;
+                        new_positions[2].y -= 1;
+                        new_positions[3].x += 1;
+                        new_positions[3].y += 1;
+                    }
+                }
+            }
+            Tetromino::S => {
+                match current_rotation {
+                    Rotation::ZERO => {
+                        new_positions[0].x += 1;
+                        new_positions[0].y += 1;
+                        new_positions[2].x += 1;
+                        new_positions[2].y -= 1;
+                        new_positions[3].y -= 2;
+                    }
+                    Rotation::NINETY => {
+                        new_positions[0].x += 1;
+                        new_positions[0].y -= 1;
+                        new_positions[2].x -= 1;
+                        new_positions[2].y -= 1;
+                        new_positions[3].x -= 2;
+                    }
+                    Rotation::ONE_EIGHTY => {
+                        new_positions[0].x -= 1;
+                        new_positions[0].y -= 1;
+                        new_positions[2].x -= 1;
+                        new_positions[2].y += 1;
+                        new_positions[3].y += 2;
+                    }
+                    Rotation::TWO_HUNDRED_SEVENTY => {
+                        new_positions[0].x -= 1;
+                        new_positions[0].y += 1;
+                        new_positions[2].x += 1;
+                        new_positions[2].y += 1;
+                        new_positions[3].x += 2;
+                    }
+                }
+            }
+            Tetromino::Z => {
+                match current_rotation {
+                    Rotation::ZERO => {
+                        new_positions[0].x += 2;
+                        new_positions[1].x += 1;
+                        new_positions[1].y -= 1;
+                        new_positions[3].x -= 1;
+                        new_positions[3].y -= 1;
+                    }
+                    Rotation::NINETY => {
+                        new_positions[0].y -= 2;
+                        new_positions[1].x -= 1;
+                        new_positions[1].y -= 1;
+                        new_positions[3].x -= 1;
+                        new_positions[3].y += 1;
+                    }
+                    Rotation::ONE_EIGHTY => {
+                        new_positions[0].x -= 2;
+                        new_positions[1].x -= 1;
+                        new_positions[1].y += 1;
+                        new_positions[3].x += 1;
+                        new_positions[3].y += 1;
+                    }
+                    Rotation::TWO_HUNDRED_SEVENTY => {
+                        new_positions[0].y += 2;
+                        new_positions[1].x += 1;
+                        new_positions[1].y += 1;
+                        new_positions[3].x += 1;
+                        new_positions[3].y -= 1;
+                    }
+                }
+            }
+            Tetromino::J => {
+                match current_rotation {
+                    Rotation::ZERO => {
+                        new_positions[0].x += 2;
+                        new_positions[1].x += 1;
+                        new_positions[1].y += 1;
+                        new_positions[3].x -= 1;
+                        new_positions[3].y -= 1;
+                    }
+                    Rotation::NINETY => {
+                        new_positions[0].y -= 2;
+                        new_positions[1].x += 1;
+                        new_positions[1].y -= 1;
+                        new_positions[3].x -= 1;
+                        new_positions[3].y += 1;
+                    }
+                    Rotation::ONE_EIGHTY => {
+                        new_positions[0].x -= 2;
+                        new_positions[1].x -= 1;
+                        new_positions[1].y -= 1;
+                        new_positions[3].x += 1;
+                        new_positions[3].y += 1;
+                    }
+                    Rotation::TWO_HUNDRED_SEVENTY => {
+                        new_positions[0].y += 2;
+                        new_positions[1].x -= 1;
+                        new_positions[1].y += 1;
+                        new_positions[3].x += 1;
+                        new_positions[3].y -= 1;
+                    }
+                }
+            }
+            Tetromino::L => {
+                match current_rotation {
+                    Rotation::ZERO => {
+                        new_positions[0].x += 1;
+                        new_positions[0].y += 1;
+                        new_positions[2].x -= 1;
+                        new_positions[2].y -= 1;
+                        new_positions[3].y -= 2;
+                    }
+                    Rotation::NINETY => {
+                        new_positions[0].x += 1;
+                        new_positions[0].y -= 1;
+                        new_positions[2].x -= 1;
+                        new_positions[2].y += 1;
+                        new_positions[3].x -= 2;
+                    }
+                    Rotation::ONE_EIGHTY => {
+                        new_positions[0].x -= 1;
+                        new_positions[0].y -= 1;
+                        new_positions[2].x += 1;
+                        new_positions[2].y += 1;
+                        new_positions[3].y += 2;
+                    }
+                    Rotation::TWO_HUNDRED_SEVENTY => {
+                        new_positions[0].x -= 1;
+                        new_positions[0].y += 1;
+                        new_positions[2].x += 1;
+                        new_positions[2].y -= 1;
+                        new_positions[3].x += 2;
+                    }
+                }
+            }
+        }
+        Some(new_positions)
     }
 
     pub fn as_drawables(&self) -> Vec<Drawable> {
         let mut drawables = Vec::new();
         for position in self.start_positions() {
-            let mut d = Drawable::new(position.x as isize, position.y as isize, 6, Some(2));
-            let mut e = d.shape_data.chunks_mut(3);
-            let f = e.next().unwrap().as_mut_ptr().cast::<[f32; 3]>();
-            let g = e.next().unwrap().as_mut_ptr().cast::<[f32; 3]>();
-            // well that is honestly unnecessary as the constructor can accept shape_data, but I wanted to try this out...
-            // Will probably change this later
-            unsafe {
-                std::ptr::copy([0.5f32, 0.5f32, 0.5f32].as_mut_ptr().cast::<[f32; 3]>(), f, 1);
-                std::ptr::copy(self.color().as_mut_ptr().cast::<[f32; 3]>(), g, 1);
-            }
+            let mut data = vec![0.5f32, 0.5f32, 0.5f32, self.color()[0], self.color()[1], self.color()[2]];
+            data.resize(8, 0.0);
+            let d = Drawable::with_shape_data(position.x as isize, position.y as isize, 6, data.try_into().unwrap(), Some(2));
             drawables.push(d);
         }
         drawables
@@ -257,26 +465,11 @@ impl Tetr {
     }
 
     pub fn as_drawables(&self) -> Vec<Drawable> {
-        // TODO: need to implement fetching Drawables from Position Vec in order to make partial Tetrs possible once rows get removed
-        //let mut drawables = self.tetromino.as_drawables();
-        //drawables.iter_mut().enumerate().for_each(|(i, d)| {
-        //    d.position[0] = self.positions[i].x as f32;
-        //    d.position[1] = self.positions[i].y as f32;
-        //});
-        //drawables
-
         let mut drawables = Vec::new();
-        for position in self.positions.iter() {
-            let mut d = Drawable::new(position.x as isize, position.y as isize, 6, Some(2));
-            let mut e = d.shape_data.chunks_mut(3);
-            let f = e.next().unwrap().as_mut_ptr().cast::<[f32; 3]>();
-            let g = e.next().unwrap().as_mut_ptr().cast::<[f32; 3]>();
-            // well that is honestly unnecessary as the constructor can accept shape_data, but I wanted to try this out...
-            // Will probably change this later
-            unsafe {
-                std::ptr::copy([0.5f32, 0.5f32, 0.5f32].as_mut_ptr().cast::<[f32; 3]>(), f, 1);
-                std::ptr::copy(self.tetromino.color().as_mut_ptr().cast::<[f32; 3]>(), g, 1);
-            }
+        for (i, position) in self.positions.iter().enumerate() {
+            let mut data = vec![0.5f32, 0.5f32, 0.5f32, self.tetromino.color()[0], self.tetromino.color()[1], i as f32 / self.positions.len() as f32];
+            data.resize(8, 0.0);
+            let d = Drawable::with_shape_data(position.x as isize, position.y as isize, 6, data.try_into().unwrap(), Some(2));
             drawables.push(d);
         }
         drawables
@@ -284,5 +477,16 @@ impl Tetr {
 
     pub fn offset(&self) -> u64 {
         std::mem::size_of::<Drawable>() as u64 * self.positions.len() as u64
+    }
+
+    pub fn spin (&mut self) {
+        self.positions = self.tetromino.try_basic_rotation(&self.positions.clone(), &self.rotation, RotationDirection::CLOCKWISE).unwrap();
+
+        self.rotation = match self.rotation {
+            Rotation::ZERO => Rotation::NINETY,
+            Rotation::NINETY => Rotation::ONE_EIGHTY,
+            Rotation::ONE_EIGHTY => Rotation::TWO_HUNDRED_SEVENTY,
+            Rotation::TWO_HUNDRED_SEVENTY => Rotation::ZERO,
+        }
     }
 }

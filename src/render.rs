@@ -550,6 +550,8 @@ pub fn render(
         }
     }
 
+    buffer_update.0 = true; // TODO: remove this and fix the buffer update logic. This is just to get it working not - performance isn't a concern right now
+
     let vec = match buffer_update.0 {
         false => tetrs
             .iter()

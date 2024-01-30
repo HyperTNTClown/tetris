@@ -51,7 +51,7 @@ fn setup_rendering(mut world: &mut World) {
     world.spawn(Tetr::new(Tetromino::O)).insert(Updated(true));
 
     world.insert_resource(MovePieceTimer(Timer::from_seconds(
-        1.0,
+        0.5,
         TimerMode::Repeating,
     )));
 
@@ -77,7 +77,7 @@ fn move_piece(
                 // We should not have to check if field is of invalid index, as we should lock all pieces that are at the bottom beforehand
                 //let field_under = field_under.unwrap();
                 tetr.positions.iter_mut().for_each(|p| p.y -= 1);
-                println!("Move piece {:?}", tetr.positions[0]);
+                //println!("Move piece {:?}", tetr.positions[0]);
                 updated.0 = true;
             }
         }
@@ -112,8 +112,17 @@ fn move_piece(
 
     if input.just_pressed(KeyCode::Up) {
         for (mut tetr, mut updated) in query.iter_mut() {
+            tetr.spin();
+        }
+    }
+
+    if input.just_pressed(KeyCode::Space) {
+        // Move piece all the way down until it hits something
+        for (mut tetr, mut updated) in query.iter_mut() {
             if !updated.0 {
-                tetr.positions.iter_mut().for_each(|p| p.y += 1);
+                while !check_field_under(&game, &tetr.positions) {
+                    tetr.positions.iter_mut().for_each(|p| p.y -= 1);
+                }
                 updated.0 = true;
             }
         }
@@ -133,7 +142,7 @@ fn spawn_new_piece(mut commands: Commands, mut query: Query<(&mut Tetr, &mut Upd
             6 => Tetromino::L,
             _ => unreachable!()
         };
-        commands.spawn(Tetr::new(Tetromino::O)).insert(Updated(true)); // DEBUG
+        commands.spawn(Tetr::new(Tetromino::Z)).insert(Updated(true)); // DEBUG
         //commands.spawn(Tetr::new(tetromino)).insert(Updated(true));
     }
 }
