@@ -48,7 +48,7 @@ fn setup_rendering(mut world: &mut World) {
 
     let renderer = Renderer::new(window);
     world.insert_resource(renderer);
-    world.spawn(Tetr::new(Tetromino::O)).insert(Updated(true));
+    //world.spawn(Tetr::new(Tetromino::O)).insert(Updated(true));
 
     world.insert_resource(MovePieceTimer(Timer::from_seconds(
         0.5,
@@ -73,20 +73,21 @@ fn move_piece(
     if timer.0.finished() {
         for (mut tetr, mut updated) in query.iter_mut() {
             if !updated.0 {
-                //let field_under = game.field[drawable.position[0] as usize].get(drawable.position[1] as usize - 1);
-                // We should not have to check if field is of invalid index, as we should lock all pieces that are at the bottom beforehand
-                //let field_under = field_under.unwrap();
                 tetr.positions.iter_mut().for_each(|p| p.y -= 1);
-                //println!("Move piece {:?}", tetr.positions[0]);
                 updated.0 = true;
             }
         }
     }
 
+    // FIXME: Fix moving into other pieces sideways
     if input.just_pressed(KeyCode::Left) {
         for (mut tetr, mut updated) in query.iter_mut() {
-            if !updated.0 {
+            if !updated.0 || true {
+                let pos = tetr.positions.clone();
                 tetr.positions.iter_mut().for_each(|p| p.x -= 1);
+                if tetr.positions.iter().any(|p| p.x < 0) {
+                    tetr.positions = pos;
+                }
                 updated.0 = true;
             }
         }
@@ -94,8 +95,12 @@ fn move_piece(
 
     if input.just_pressed(KeyCode::Right) {
         for (mut tetr, mut updated) in query.iter_mut() {
-            if !updated.0 {
+            if !updated.0 || true {
+                let pos = tetr.positions.clone();
                 tetr.positions.iter_mut().for_each(|p| p.x += 1);
+                if tetr.positions.iter().any(|p| p.x > 9) {
+                    tetr.positions = pos;
+                }
                 updated.0 = true;
             }
         }
@@ -142,8 +147,7 @@ fn spawn_new_piece(mut commands: Commands, mut query: Query<(&mut Tetr, &mut Upd
             6 => Tetromino::L,
             _ => unreachable!()
         };
-        commands.spawn(Tetr::new(Tetromino::Z)).insert(Updated(true)); // DEBUG
-        //commands.spawn(Tetr::new(tetromino)).insert(Updated(true));
+        commands.spawn(Tetr::new(tetromino)).insert(Updated(true));
     }
 }
 

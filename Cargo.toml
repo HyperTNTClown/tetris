@@ -19,6 +19,7 @@ bevy_turborand = "0.7.0"
 
 [profile.dev]
 opt-level = 1
+incremental = true
 
 [profile.dev.package."*"]
 opt-level = 3
@@ -26,3 +27,5 @@ opt-level = 3
 [profile.release]
 opt-level = 3
 lto = true
+panic = "abort"
+incremental = false

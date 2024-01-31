@@ -481,6 +481,12 @@ impl Tetr {
 
     pub fn spin (&mut self) {
         self.positions = self.tetromino.try_basic_rotation(&self.positions.clone(), &self.rotation, RotationDirection::CLOCKWISE).unwrap();
+        while self.positions.iter().any(|p| p.x < 0) {
+            self.positions.iter_mut().for_each(|p| p.x += 1);
+        }
+        while self.positions.iter().any(|p| p.x > 9) {
+            self.positions.iter_mut().for_each(|p| p.x -= 1);
+        }
 
         self.rotation = match self.rotation {
             Rotation::ZERO => Rotation::NINETY,
