@@ -47,7 +47,8 @@ fn setup_rendering(mut world: &mut World) {
         .as_slice()[0];
 
     let renderer = Renderer::new(window);
-    world.insert_resource(renderer);
+    //world.insert_resource(renderer);
+    world.insert_non_send_resource(renderer);
     //world.spawn(Tetr::new(Tetromino::O)).insert(Updated(true));
 
     world.insert_resource(MovePieceTimer(Timer::from_seconds(
@@ -162,20 +163,36 @@ fn update_board(mut game: ResMut<TetrisGame>, mut tetr: Query<&mut Tetr, With<Lo
 
     // remove full rows
     // TODO: Shift the rows above down
+    let mut removed_rows = Vec::new();
     let mut row = 0;
     while row < game.field.len() {
         if game.field[row].iter().all(|&b| b) {
             game.field[row] = [false; 10];
-            // remove matching positions from all tetrs
             for mut tetr in tetr.iter_mut() {
                 tetr.positions.retain(|p| p.y != row as u32 as i32);
             }
             buffer_update.0 = true;
+            removed_rows.push(row);
         }
         row+=1;
     }
 
-    // fuuck we need to remove the locked drawables to make it work...
+    for (i, e) in removed_rows.iter_mut().enumerate() {
+        let e = *e - i;
+        tetr.for_each_mut(|mut tetr| {
+            tetr.positions.iter_mut().for_each(|p| {
+                if p.y > (e as i32) {
+                    p.y -= 1;
+                }
+            })
+        });
+    }
+
+    if !removed_rows.is_empty() {
+        game.field = [[false; 10]; 40]
+    }
+
+    // We need to remove the locked drawables to make it work...
     // And then there also is the buffer where we have written to sequentially,
     // so we actually either need to shift inside the buffer or just
     // simply overwrite it completely (performance vs simplicity)

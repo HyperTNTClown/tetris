@@ -467,7 +467,7 @@ impl Tetr {
     pub fn as_drawables(&self) -> Vec<Drawable> {
         let mut drawables = Vec::new();
         for (i, position) in self.positions.iter().enumerate() {
-            let mut data = vec![0.5f32, 0.5f32, 0.5f32, self.tetromino.color()[0], self.tetromino.color()[1], i as f32 / self.positions.len() as f32];
+            let mut data = vec![0.5f32, 0.5f32, 0.5f32, self.tetromino.color()[0], self.tetromino.color()[1], self.tetromino.color()[2]];
             data.resize(8, 0.0);
             let d = Drawable::with_shape_data(position.x as isize, position.y as isize, 6, data.try_into().unwrap(), Some(2));
             drawables.push(d);

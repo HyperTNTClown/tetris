@@ -1,13 +1,13 @@
 use crate::components::{BufferUpdate, Drawable, Locked, Tetr, Updated};
 use bevy::ecs::system::Resource;
-use bevy::prelude::{Commands, EventReader, Has, Query, Res, ResMut};
+use bevy::prelude::{Commands, EventReader, Has, NonSendMut, Query, Res, ResMut};
 use bevy::tasks::block_on;
 use bevy::time::{Fixed, Time};
 use bevy::window::{RequestRedraw, WindowResized};
 use std::thread;
 use std::time::{Duration, Instant};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
-use wgpu::{BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BufferBindingType, BufferUsages, SamplerBindingType, ShaderStages, TextureDimension};
+use wgpu::{BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BufferBindingType, BufferUsages, include_wgsl, SamplerBindingType, ShaderStages, TextureDimension};
 use wgsl_preprocessor::ShaderBuilder;
 use winit::dpi::LogicalSize;
 use winit::window::Window;
@@ -48,7 +48,6 @@ const VERTICES: &[Vertex] = &[
 
 const SCALE: f32 = 1f32 / 4f32;
 
-#[derive(Resource)]
 pub struct Renderer {
     apply_render_pipeline: wgpu::RenderPipeline,
     clear_color: wgpu::Color,
@@ -99,7 +98,7 @@ impl Renderer {
             &wgpu::DeviceDescriptor {
                 label: None,
                 features: wgpu::Features::empty(),
-                limits: wgpu::Limits::default(),
+                limits: wgpu::Limits::downlevel_webgl2_defaults(),
             },
             None,
         ))
@@ -128,7 +127,8 @@ impl Renderer {
 
         surface.configure(&device, &config);
 
-        let shader = device.create_shader_module(ShaderBuilder::new("main.wgsl").unwrap().build());
+        //let shader = device.create_shader_module(ShaderBuilder::new("main.wgsl").unwrap().build());
+        let shader = device.create_shader_module(include_wgsl!("main_combined.wgsl"));
 
         let uniforms = Uniforms::default();
 
@@ -304,8 +304,10 @@ impl Renderer {
             ],
         });
 
-        let shader =
-            device.create_shader_module(ShaderBuilder::new("apply_texture.wgsl").unwrap().build());
+        //let shader =
+        //    device.create_shader_module(ShaderBuilder::new("apply_texture.wgsl").unwrap().build());
+
+        let shader = device.create_shader_module(include_wgsl!("apply_texture.wgsl"));
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -529,7 +531,7 @@ unsafe impl bytemuck::Zeroable for Drawables {}
 unsafe impl bytemuck::Pod for Drawables {}
 
 pub fn render(
-    mut renderer: ResMut<Renderer>,
+    mut renderer: NonSendMut<Renderer>,
     time: Res<Time<Fixed>>,
     mut tetrs: Query<(&Tetr, &mut Updated, Has<Locked>)>,
     mut buffer_update: ResMut<BufferUpdate>,
@@ -612,7 +614,7 @@ pub fn render(
 }
 
 pub fn render_events(
-    mut renderer: ResMut<Renderer>,
+    mut renderer: NonSendMut<Renderer>,
     mut redraw: EventReader<RequestRedraw>,
     mut resize: EventReader<WindowResized>,
     instant: Res<Time<Fixed>>,
