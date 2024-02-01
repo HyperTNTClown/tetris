@@ -9,32 +9,35 @@ pub struct Updated(pub(crate) bool);
 #[derive(Component)]
 pub struct Locked;
 
+
+// FIXME: MAYBE SPLIT SHAPE_DATA INTO TWO VEC4s
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Component)]
 pub struct Drawable {
-    pub position: [f32; 3],
+    pub position: [f32; 4],
     pub shape_data: [f32; 8],
-    pub shape: u32,
 }
 
 impl Drawable {
 
     pub fn new(x: isize, y: isize, z: isize, shape: Option<u32>) -> Self {
         let shape = shape.unwrap_or(0);
+        let mut shape_data = [0.0; 8];
+        shape_data[7] = shape as f32;
         Drawable {
-            position: [x as f32, y as f32, z as f32],
-            shape_data: [0.0; 8],
-            shape,
+            position: [x as f32, y as f32, z as f32, 0.0],
+            shape_data,
             ..default()
         }
     }
 
-    pub fn with_shape_data(x: isize, y: isize, z: isize, shape_data: [f32; 8], shape: Option<u32>) -> Self {
+    pub fn with_shape_data(x: isize, y: isize, z: isize, mut shape_data: [f32; 8], shape: Option<u32>) -> Self {
         let shape = shape.unwrap_or(0);
+        shape_data[7] = shape as f32;
         Drawable {
-            position: [x as f32, y as f32, z as f32],
+            position: [x as f32, y as f32, z as f32, 0.0],
             shape_data,
-            shape,
             ..default()
         }
     }
@@ -47,9 +50,8 @@ impl Drawable {
 impl Default for Drawable {
     fn default() -> Self {
         Drawable {
-            position: [0.0, 0.0, 0.0],
+            position: [0.0; 4],
             shape_data: [0.0; 8],
-            shape: 0,
         }
     }
 }
@@ -69,12 +71,6 @@ enum Rotation {
     NINETY = 1,
     ONE_EIGHTY = 2,
     TWO_HUNDRED_SEVENTY = 3,
-}
-
-#[derive(Debug)]
-enum RotationDirection {
-    CLOCKWISE = 1,
-    COUNTER_CLOCKWISE = -1,
 }
 
 // https://tetris.fandom.com/wiki/Tetris_Guideline
@@ -225,7 +221,6 @@ impl Tetromino {
         &self,
         positions: &Vec<Position>,
         current_rotation: &Rotation,
-        rotation_direction: RotationDirection
     ) -> Option<Vec<Position>> {
         let mut new_positions = positions.clone();
         match self {
@@ -437,7 +432,7 @@ impl Tetromino {
     pub fn as_drawables(&self) -> Vec<Drawable> {
         let mut drawables = Vec::new();
         for position in self.start_positions() {
-            let mut data = vec![0.5f32, 0.5f32, 0.5f32, self.color()[0], self.color()[1], self.color()[2]];
+            let mut data = vec![0.5f32, 0.5f32, 0.5f32, 0.0, self.color()[0], self.color()[1], self.color()[2]];
             data.resize(8, 0.0);
             let d = Drawable::with_shape_data(position.x as isize, position.y as isize, 6, data.try_into().unwrap(), Some(2));
             drawables.push(d);
@@ -467,7 +462,7 @@ impl Tetr {
     pub fn as_drawables(&self) -> Vec<Drawable> {
         let mut drawables = Vec::new();
         for (i, position) in self.positions.iter().enumerate() {
-            let mut data = vec![0.5f32, 0.5f32, 0.5f32, self.tetromino.color()[0], self.tetromino.color()[1], self.tetromino.color()[2]];
+            let mut data = vec![0.5f32, 0.5f32, 0.5f32, 0.0, self.tetromino.color()[0], self.tetromino.color()[1], self.tetromino.color()[2]];
             data.resize(8, 0.0);
             let d = Drawable::with_shape_data(position.x as isize, position.y as isize, 6, data.try_into().unwrap(), Some(2));
             drawables.push(d);
@@ -480,7 +475,7 @@ impl Tetr {
     }
 
     pub fn spin (&mut self) {
-        self.positions = self.tetromino.try_basic_rotation(&self.positions.clone(), &self.rotation, RotationDirection::CLOCKWISE).unwrap();
+        self.positions = self.tetromino.try_basic_rotation(&self.positions.clone(), &self.rotation).unwrap();
         while self.positions.iter().any(|p| p.x < 0) {
             self.positions.iter_mut().for_each(|p| p.x += 1);
         }

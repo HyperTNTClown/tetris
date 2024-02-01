@@ -60,7 +60,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     //col.r = mix(col.r, textureSample(tex_coords, tex_sampler, fixed_uv + vec2<f32>(0.01*rand, 0.01*rand)).r, enable_shift);
     //col.b = mix(col.b, textureSample(tex_coords, tex_sampler, fixed_uv + vec2<f32>(-0.01*rand, -0.01*rand)).b, enable_shift);
 
-
     //return vec4<f32>(uv.x, uv.y, 0., 1.);
 
     var col = textureSample(tex_coords, tex_sampler, uv.xy);

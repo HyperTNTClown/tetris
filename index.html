@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <title></title>
+</head>
+<body>
+
+</body>
+<script>
+    document.addEventListener('click', (event) => {
+        let h = document.querySelector('canvas').style.height
+        document.querySelector('canvas').style.height = h.replace('px', '') * 2 + 'px'
+        document.removeEventListener('click', this)
+    });
+    //let h = document.querySelector('canvas').style.height
+    //document.querySelector('canvas').style.height = h.replace('px', '') * 2 + 'px'
+</script>
+</html>

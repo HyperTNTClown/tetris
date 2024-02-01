@@ -266,6 +266,7 @@ dependencies = [
  "graphics-shapes",
  "hexx",
  "instant",
+ "log",
  "web-sys",
  "wgpu",
  "wgsl_preprocessor",

@@ -6,11 +6,13 @@ use bevy::time::{Fixed, Time};
 use bevy::window::{RequestRedraw, WindowResized};
 use std::thread;
 use std::time::{Duration, Instant};
+use bevy::utils::info;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BufferBindingType, BufferUsages, include_wgsl, SamplerBindingType, ShaderStages, TextureDimension};
 use wgsl_preprocessor::ShaderBuilder;
 use winit::dpi::LogicalSize;
 use winit::window::Window;
+use log::info;
 
 // TODO: Think about maybe using two Drawable-buffers which can be switched so when writing to one the other (cached one) can be used
 // and updated once we stop writing to the primary one... We wanna increase our FPS
@@ -71,7 +73,7 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub(crate) fn new(window: &Window) -> Renderer {
+    pub(crate) async fn new(window: &Window) -> Renderer {
         // Pointer hack to be able to get a constant reference to the window...
         // I'm not sure if this is the best way to do this, buuut it works.
         // TODO: Could try to instead use an Arc<Window>, might be safer...
@@ -87,21 +89,21 @@ impl Renderer {
 
         let surface = unsafe { instance.create_surface(&window) }.unwrap();
 
-        let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+        let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::default(),
             force_fallback_adapter: false,
             compatible_surface: Some(&surface),
-        }))
+        }).await
         .unwrap();
 
-        let (device, queue) = block_on(adapter.request_device(
+        let (device, queue) = adapter.request_device(
             &wgpu::DeviceDescriptor {
                 label: None,
                 features: wgpu::Features::empty(),
                 limits: wgpu::Limits::downlevel_webgl2_defaults(),
             },
             None,
-        ))
+        ).await
         .unwrap();
 
         let surface_capabilities = surface.get_capabilities(&adapter);
@@ -166,7 +168,7 @@ impl Renderer {
         let drawables_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Drawables Buffer"),
             contents: drawables.as_bytes(),
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         });
 
         let drawables_buffer_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -176,7 +178,7 @@ impl Renderer {
                 visibility: ShaderStages::FRAGMENT,
                 count: None,
                 ty: wgpu::BindingType::Buffer {
-                    ty: BufferBindingType::Storage { read_only: true },
+                    ty: BufferBindingType::Uniform,
                     has_dynamic_offset: false,
                     min_binding_size: None,
                 },
@@ -363,7 +365,8 @@ impl Renderer {
         }
     }
 
-    fn resize(&mut self, new_size: winit::dpi::LogicalSize<f32>) {
+    pub(crate) fn resize(&mut self, new_size: winit::dpi::LogicalSize<f32>) {
+        info!("Resizing sf: {}, ns: {:?}", self.window.scale_factor(), new_size);
         let physical = new_size.to_physical(self.window.scale_factor());
         if physical.width > 0 && physical.height > 0 {
             self.size = physical;
@@ -537,20 +540,20 @@ pub fn render(
     mut buffer_update: ResMut<BufferUpdate>,
     mut _commands: Commands,
 ) {
-    static mut FRAME_COUNT: u32 = 0;
-    static mut LAST_TIME: f32 = 0.0;
+    //static mut FRAME_COUNT: u32 = 0;
+    //static mut LAST_TIME: f32 = 0.0;
 
-    let start_time = Instant::now();
+    //let start_time = Instant::now();
 
-    unsafe {
-        FRAME_COUNT += 1;
-        let elapsed = time.elapsed_seconds_wrapped();
-        if elapsed - LAST_TIME >= 1.0 {
-            println!("FPS: {}", FRAME_COUNT);
-            FRAME_COUNT = 0;
-            LAST_TIME = elapsed;
-        }
-    }
+    //unsafe {
+    //    FRAME_COUNT += 1;
+    //    let elapsed = time.elapsed_seconds_wrapped();
+    //    if elapsed - LAST_TIME >= 1.0 {
+    //        println!("FPS: {}", FRAME_COUNT);
+    //        FRAME_COUNT = 0;
+    //        LAST_TIME = elapsed;
+    //    }
+    //}
 
     buffer_update.0 = true; // TODO: remove this and fix the buffer update logic. This is just to get it working not - performance isn't a concern right now
 
@@ -571,7 +574,7 @@ pub fn render(
         .iter()
         .map(|e| e.as_drawables())
         .flatten()
-        .filter(|e| e.shape != 0)
+        .filter(|e| e.shape_data[7] != 0.0)
         .map(|d| d.as_bytes().to_vec())
         .flatten()
         .collect::<Vec<u8>>();
@@ -601,11 +604,11 @@ pub fn render(
         .write_buffer(&renderer.uniforms_buffer, 0, renderer.uniforms.as_bytes());
     renderer.render().unwrap();
 
-    let elapsed_time = start_time.elapsed();
-    let frame_time = Duration::from_secs_f32(1.0 / 120.0);
-    if elapsed_time < frame_time {
-        thread::sleep(frame_time - elapsed_time);
-    }
+    //let elapsed_time = start_time.elapsed();
+    //let frame_time = Duration::from_secs_f32(1.0 / 120.0);
+    //if elapsed_time < frame_time {
+    //    thread::sleep(frame_time - elapsed_time);
+    //}
 
     for mut e in tetrs.iter_mut() {
         e.1 .0 = false;
@@ -632,4 +635,8 @@ pub fn render_events(
     });
 
     renderer.uniforms.time = instant.elapsed_seconds_wrapped();
+    //renderer.uniforms.window_size = [
+    //    2560.0,
+    //    1440.0,
+    //];
 }

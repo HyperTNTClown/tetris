@@ -4,6 +4,7 @@ use bevy::app::{App, DynEq, MainScheduleOrder, PostUpdate, Startup};
 use bevy::ecs::schedule::{ExecutorKind, ScheduleLabel};
 use bevy::prelude::*;
 use bevy::reflect::List;
+use bevy::tasks::block_on;
 use bevy::time::TimerMode;
 use bevy::winit::{winit_runner, WinitWindows};
 use bevy_turborand::{DelegatedRng, GlobalRng};
@@ -46,10 +47,9 @@ fn setup_rendering(mut world: &mut World) {
         .collect::<Vec<&Window>>()
         .as_slice()[0];
 
-    let renderer = Renderer::new(window);
-    //world.insert_resource(renderer);
+    let mut renderer = block_on(Renderer::new(window));
+    renderer.resize(window.inner_size().to_logical(1.0));
     world.insert_non_send_resource(renderer);
-    //world.spawn(Tetr::new(Tetromino::O)).insert(Updated(true));
 
     world.insert_resource(MovePieceTimer(Timer::from_seconds(
         0.5,

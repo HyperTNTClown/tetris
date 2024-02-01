@@ -44,13 +44,13 @@ struct Uniforms {
 var<uniform> uniforms: Uniforms;
 
 struct Drawable {
-    position: vec3<f32>,
-    shape_data: array<f32, 8>,
-    shape: u32,
+    position: vec4<f32>,
+    shape_data: vec4<f32>,
+    shape_data2: vec4<f32>,
 }
 
 @group(1) @binding(0)
-var<storage, read> drawables: array<Drawable, 256>;
+var<uniform> drawables: array<Drawable, 256>;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
@@ -115,23 +115,23 @@ fn scene(p: vec3<f32>) -> Surface {
     res.sd = 1000.;
     for (var i = 0; i < 256; i = i + 1) {
         var d = drawables[i];
-        if (d.shape == u32(0)) {
+        if (d.shape_data2.w == 0.0) {
             return res;
-        } else if (d.shape == u32(1)) {
-            var sphere_pos = d.position;
+        } else if (d.shape_data2.w == 1.0) {
+            var sphere_pos = d.position.xyz;
             var radius = d.shape_data[0];
             var sphere = sdSphere(p - sphere_pos, radius, vec3<f32>(1.0, 0.0, 0.0));
             if (sphere.sd < res.sd) {
                 res.sd = sphere.sd;
                 res.col = vec3<f32>(1.0, 0., 0.);
             }
-        } else if (d.shape == u32(2)) {
+        } else if (d.shape_data2.w == 2.0) {
             var box_pos = tetris_pos_to_world_pos(d.position.xy);
             var box_size = vec3<f32>(0.125, 0.125, .05);
             var box = sdBox(p - box_pos, box_size, vec3<f32>(1.0, 0.0, 0.0));
             if (box.sd < res.sd) {
                 res.sd = box.sd;
-                res.col = vec3<f32>(d.shape_data[3], d.shape_data[4], d.shape_data[5]);
+                res.col = vec3<f32>(d.shape_data2.x, d.shape_data2.y, d.shape_data2.z);
             }
         }
 
