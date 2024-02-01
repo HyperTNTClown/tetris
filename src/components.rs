@@ -21,6 +21,7 @@ pub struct Drawable {
 
 impl Drawable {
 
+    #[allow(dead_code)]
     pub fn new(x: isize, y: isize, z: isize, shape: Option<u32>) -> Self {
         let shape = shape.unwrap_or(0);
         let mut shape_data = [0.0; 8];
@@ -28,7 +29,6 @@ impl Drawable {
         Drawable {
             position: [x as f32, y as f32, z as f32, 0.0],
             shape_data,
-            ..default()
         }
     }
 
@@ -38,7 +38,6 @@ impl Drawable {
         Drawable {
             position: [x as f32, y as f32, z as f32, 0.0],
             shape_data,
-            ..default()
         }
     }
 
@@ -66,11 +65,11 @@ pub struct Position {
 }
 
 #[derive(Debug)]
-enum Rotation {
-    ZERO = 0,
-    NINETY = 1,
-    ONE_EIGHTY = 2,
-    TWO_HUNDRED_SEVENTY = 3,
+pub enum Rotation {
+    Zero = 0,
+    Ninety = 1,
+    OneEighty = 2,
+    TwoHundredSeventy = 3,
 }
 
 // https://tetris.fandom.com/wiki/Tetris_Guideline
@@ -219,14 +218,14 @@ impl Tetromino {
     /// | Guidelines
     pub fn try_basic_rotation(
         &self,
-        positions: &Vec<Position>,
+        positions: &[Position],
         current_rotation: &Rotation,
-    ) -> Option<Vec<Position>> {
-        let mut new_positions = positions.clone();
+    ) -> Vec<Position> {
+        let mut new_positions = positions.to_owned();
         match self {
             Tetromino::I => {
                 match current_rotation {
-                    Rotation::ZERO => {
+                    Rotation::Zero => {
                         new_positions[0].x += 2;
                         new_positions[0].y += 1;
                         new_positions[1].x += 1;
@@ -234,7 +233,7 @@ impl Tetromino {
                         new_positions[3].x -= 1;
                         new_positions[3].y -= 2;
                     }
-                    Rotation::NINETY => {
+                    Rotation::Ninety => {
                         new_positions[0].x += 1;
                         new_positions[0].y -= 2;
                         new_positions[1].y -= 1;
@@ -242,7 +241,7 @@ impl Tetromino {
                         new_positions[3].x -= 2;
                         new_positions[3].y += 1;
                     }
-                    Rotation::ONE_EIGHTY => {
+                    Rotation::OneEighty => {
                         new_positions[0].x -= 2;
                         new_positions[0].y -= 1;
                         new_positions[1].x -= 1;
@@ -250,7 +249,7 @@ impl Tetromino {
                         new_positions[3].x += 1;
                         new_positions[3].y += 2;
                     }
-                    Rotation::TWO_HUNDRED_SEVENTY => {
+                    Rotation::TwoHundredSeventy => {
                         new_positions[0].x -= 1;
                         new_positions[0].y += 2;
                         new_positions[1].y += 1;
@@ -263,7 +262,7 @@ impl Tetromino {
             Tetromino::O => {}
             Tetromino::T => {
                 match current_rotation {
-                    Rotation::ZERO => {
+                    Rotation::Zero => {
                         new_positions[0].x += 1;
                         new_positions[0].y += 1;
                         new_positions[2].x -= 1;
@@ -271,7 +270,7 @@ impl Tetromino {
                         new_positions[3].x += 1;
                         new_positions[3].y -= 1;
                     }
-                    Rotation::NINETY => {
+                    Rotation::Ninety => {
                         new_positions[0].x += 1;
                         new_positions[0].y -= 1;
                         new_positions[2].x -= 1;
@@ -279,7 +278,7 @@ impl Tetromino {
                         new_positions[3].x -= 1;
                         new_positions[3].y -= 1;
                     }
-                    Rotation::ONE_EIGHTY => {
+                    Rotation::OneEighty => {
                         new_positions[0].x -= 1;
                         new_positions[0].y -= 1;
                         new_positions[2].x += 1;
@@ -287,7 +286,7 @@ impl Tetromino {
                         new_positions[3].x -= 1;
                         new_positions[3].y += 1;
                     }
-                    Rotation::TWO_HUNDRED_SEVENTY => {
+                    Rotation::TwoHundredSeventy => {
                         new_positions[0].x -= 1;
                         new_positions[0].y += 1;
                         new_positions[2].x += 1;
@@ -299,28 +298,28 @@ impl Tetromino {
             }
             Tetromino::S => {
                 match current_rotation {
-                    Rotation::ZERO => {
+                    Rotation::Zero => {
                         new_positions[0].x += 1;
                         new_positions[0].y += 1;
                         new_positions[2].x += 1;
                         new_positions[2].y -= 1;
                         new_positions[3].y -= 2;
                     }
-                    Rotation::NINETY => {
+                    Rotation::Ninety => {
                         new_positions[0].x += 1;
                         new_positions[0].y -= 1;
                         new_positions[2].x -= 1;
                         new_positions[2].y -= 1;
                         new_positions[3].x -= 2;
                     }
-                    Rotation::ONE_EIGHTY => {
+                    Rotation::OneEighty => {
                         new_positions[0].x -= 1;
                         new_positions[0].y -= 1;
                         new_positions[2].x -= 1;
                         new_positions[2].y += 1;
                         new_positions[3].y += 2;
                     }
-                    Rotation::TWO_HUNDRED_SEVENTY => {
+                    Rotation::TwoHundredSeventy => {
                         new_positions[0].x -= 1;
                         new_positions[0].y += 1;
                         new_positions[2].x += 1;
@@ -331,28 +330,28 @@ impl Tetromino {
             }
             Tetromino::Z => {
                 match current_rotation {
-                    Rotation::ZERO => {
+                    Rotation::Zero => {
                         new_positions[0].x += 2;
                         new_positions[1].x += 1;
                         new_positions[1].y -= 1;
                         new_positions[3].x -= 1;
                         new_positions[3].y -= 1;
                     }
-                    Rotation::NINETY => {
+                    Rotation::Ninety => {
                         new_positions[0].y -= 2;
                         new_positions[1].x -= 1;
                         new_positions[1].y -= 1;
                         new_positions[3].x -= 1;
                         new_positions[3].y += 1;
                     }
-                    Rotation::ONE_EIGHTY => {
+                    Rotation::OneEighty => {
                         new_positions[0].x -= 2;
                         new_positions[1].x -= 1;
                         new_positions[1].y += 1;
                         new_positions[3].x += 1;
                         new_positions[3].y += 1;
                     }
-                    Rotation::TWO_HUNDRED_SEVENTY => {
+                    Rotation::TwoHundredSeventy => {
                         new_positions[0].y += 2;
                         new_positions[1].x += 1;
                         new_positions[1].y += 1;
@@ -363,28 +362,28 @@ impl Tetromino {
             }
             Tetromino::J => {
                 match current_rotation {
-                    Rotation::ZERO => {
+                    Rotation::Zero => {
                         new_positions[0].x += 2;
                         new_positions[1].x += 1;
                         new_positions[1].y += 1;
                         new_positions[3].x -= 1;
                         new_positions[3].y -= 1;
                     }
-                    Rotation::NINETY => {
+                    Rotation::Ninety => {
                         new_positions[0].y -= 2;
                         new_positions[1].x += 1;
                         new_positions[1].y -= 1;
                         new_positions[3].x -= 1;
                         new_positions[3].y += 1;
                     }
-                    Rotation::ONE_EIGHTY => {
+                    Rotation::OneEighty => {
                         new_positions[0].x -= 2;
                         new_positions[1].x -= 1;
                         new_positions[1].y -= 1;
                         new_positions[3].x += 1;
                         new_positions[3].y += 1;
                     }
-                    Rotation::TWO_HUNDRED_SEVENTY => {
+                    Rotation::TwoHundredSeventy => {
                         new_positions[0].y += 2;
                         new_positions[1].x -= 1;
                         new_positions[1].y += 1;
@@ -395,28 +394,28 @@ impl Tetromino {
             }
             Tetromino::L => {
                 match current_rotation {
-                    Rotation::ZERO => {
+                    Rotation::Zero => {
                         new_positions[0].x += 1;
                         new_positions[0].y += 1;
                         new_positions[2].x -= 1;
                         new_positions[2].y -= 1;
                         new_positions[3].y -= 2;
                     }
-                    Rotation::NINETY => {
+                    Rotation::Ninety => {
                         new_positions[0].x += 1;
                         new_positions[0].y -= 1;
                         new_positions[2].x -= 1;
                         new_positions[2].y += 1;
                         new_positions[3].x -= 2;
                     }
-                    Rotation::ONE_EIGHTY => {
+                    Rotation::OneEighty => {
                         new_positions[0].x -= 1;
                         new_positions[0].y -= 1;
                         new_positions[2].x += 1;
                         new_positions[2].y += 1;
                         new_positions[3].y += 2;
                     }
-                    Rotation::TWO_HUNDRED_SEVENTY => {
+                    Rotation::TwoHundredSeventy => {
                         new_positions[0].x -= 1;
                         new_positions[0].y += 1;
                         new_positions[2].x += 1;
@@ -426,9 +425,10 @@ impl Tetromino {
                 }
             }
         }
-        Some(new_positions)
+        new_positions
     }
 
+    #[allow(dead_code)]
     pub fn as_drawables(&self) -> Vec<Drawable> {
         let mut drawables = Vec::new();
         for position in self.start_positions() {
@@ -454,14 +454,14 @@ impl Tetr {
         let positions = tetromino.start_positions();
         Tetr {
             positions,
-            rotation: Rotation::ZERO,
+            rotation: Rotation::Zero,
             tetromino,
         }
     }
 
     pub fn as_drawables(&self) -> Vec<Drawable> {
         let mut drawables = Vec::new();
-        for (i, position) in self.positions.iter().enumerate() {
+        for position in &self.positions {
             let mut data = vec![0.5f32, 0.5f32, 0.5f32, 0.0, self.tetromino.color()[0], self.tetromino.color()[1], self.tetromino.color()[2]];
             data.resize(8, 0.0);
             let d = Drawable::with_shape_data(position.x as isize, position.y as isize, 6, data.try_into().unwrap(), Some(2));
@@ -475,7 +475,7 @@ impl Tetr {
     }
 
     pub fn spin (&mut self) {
-        self.positions = self.tetromino.try_basic_rotation(&self.positions.clone(), &self.rotation).unwrap();
+        self.positions = self.tetromino.try_basic_rotation(self.positions.as_slice(), &self.rotation);
         while self.positions.iter().any(|p| p.x < 0) {
             self.positions.iter_mut().for_each(|p| p.x += 1);
         }
@@ -484,10 +484,10 @@ impl Tetr {
         }
 
         self.rotation = match self.rotation {
-            Rotation::ZERO => Rotation::NINETY,
-            Rotation::NINETY => Rotation::ONE_EIGHTY,
-            Rotation::ONE_EIGHTY => Rotation::TWO_HUNDRED_SEVENTY,
-            Rotation::TWO_HUNDRED_SEVENTY => Rotation::ZERO,
+            Rotation::Zero => Rotation::Ninety,
+            Rotation::Ninety => Rotation::OneEighty,
+            Rotation::OneEighty => Rotation::TwoHundredSeventy,
+            Rotation::TwoHundredSeventy => Rotation::Zero,
         }
     }
 }

@@ -1,16 +1,11 @@
 use crate::components::{BufferUpdate, Drawable, Locked, Tetr, Updated};
-use bevy::ecs::system::Resource;
 use bevy::prelude::{Commands, EventReader, Has, NonSendMut, Query, Res, ResMut};
-use bevy::tasks::block_on;
 use bevy::time::{Fixed, Time};
 use bevy::window::{RequestRedraw, WindowResized};
-use std::thread;
-use std::time::{Duration, Instant};
-use bevy::utils::info;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
-use wgpu::{BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BufferBindingType, BufferUsages, include_wgsl, SamplerBindingType, ShaderStages, TextureDimension};
-use wgsl_preprocessor::ShaderBuilder;
+use wgpu::{BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BufferBindingType, BufferUsages, include_wgsl, SamplerBindingType, ShaderStages, TextureDimension, TextureFormat};
 use winit::dpi::LogicalSize;
+
 use winit::window::Window;
 use log::info;
 
@@ -55,10 +50,9 @@ pub struct Renderer {
     clear_color: wgpu::Color,
     config: wgpu::SurfaceConfiguration,
     device: wgpu::Device,
-    drawables: Drawables,
+    _drawables: Drawables,
     drawables_buffer: wgpu::Buffer,
     drawables_buffer_bind_group: wgpu::BindGroup,
-    num_vertices: u32,
     queue: wgpu::Queue,
     render_texture: wgpu::Texture,
     size: winit::dpi::PhysicalSize<u32>,
@@ -94,7 +88,7 @@ impl Renderer {
             force_fallback_adapter: false,
             compatible_surface: Some(&surface),
         }).await
-        .unwrap();
+            .unwrap();
 
         let (device, queue) = adapter.request_device(
             &wgpu::DeviceDescriptor {
@@ -104,7 +98,7 @@ impl Renderer {
             },
             None,
         ).await
-        .unwrap();
+            .unwrap();
 
         let surface_capabilities = surface.get_capabilities(&adapter);
 
@@ -114,7 +108,7 @@ impl Renderer {
             .copied()
             // .filter(|f| f.is_srgb())
             // .next()
-            .find(|f| f.is_srgb())
+            .find(TextureFormat::is_srgb)
             .unwrap_or(surface_capabilities.formats[0]);
 
         let config = wgpu::SurfaceConfiguration {
@@ -237,13 +231,11 @@ impl Renderer {
                 multiview: None,
             });
 
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
+            usage: BufferUsages::VERTEX,
         });
-
-        let num_vertices = VERTICES.len() as u32;
 
         let clear_color = wgpu::Color::BLACK;
 
@@ -267,18 +259,18 @@ impl Renderer {
 
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor::default());
         let texture_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("Texture Bind Group Layout"),
                 entries: &[
-                    wgpu::BindGroupLayoutEntry {
+                    BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        visibility: ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Sampler(SamplerBindingType::Filtering),
                         count: None,
                     },
-                    wgpu::BindGroupLayoutEntry {
+                    BindGroupLayoutEntry {
                         binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        visibility: ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Texture {
                             sample_type: wgpu::TextureSampleType::Float { filterable: true },
                             view_dimension: wgpu::TextureViewDimension::D2,
@@ -289,15 +281,15 @@ impl Renderer {
                 ],
             });
 
-        let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let texture_bind_group = device.create_bind_group(&BindGroupDescriptor {
             label: Some("Texture Bind Group"),
             layout: &texture_bind_group_layout,
             entries: &[
-                wgpu::BindGroupEntry {
+                BindGroupEntry {
                     binding: 0,
                     resource: wgpu::BindingResource::Sampler(&sampler),
                 },
-                wgpu::BindGroupEntry {
+                BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::TextureView(
                         &render_texture.create_view(&wgpu::TextureViewDescriptor::default()),
@@ -351,12 +343,11 @@ impl Renderer {
             vertex_buffer,
             texture_render_pipeline,
             apply_render_pipeline,
-            num_vertices,
             clear_color,
             uniforms,
             uniforms_buffer,
             uniforms_buffer_bind_group,
-            drawables,
+            _drawables: drawables,
             drawables_buffer,
             drawables_buffer_bind_group,
             render_texture,
@@ -365,7 +356,7 @@ impl Renderer {
         }
     }
 
-    pub(crate) fn resize(&mut self, new_size: winit::dpi::LogicalSize<f32>) {
+    pub(crate) fn resize(&mut self, new_size: LogicalSize<f32>) {
         info!("Resizing sf: {}, ns: {:?}", self.window.scale_factor(), new_size);
         let physical = new_size.to_physical(self.window.scale_factor());
         if physical.width > 0 && physical.height > 0 {
@@ -375,7 +366,7 @@ impl Renderer {
             self.surface.configure(&self.device, &self.config);
             self.uniforms.window_size = [physical.width as f32, physical.height as f32];
             self.uniforms.window_scale = self.window.scale_factor() as f32;
-            self.window.request_redraw()
+            self.window.request_redraw();
         }
     }
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -535,10 +526,10 @@ unsafe impl bytemuck::Pod for Drawables {}
 
 pub fn render(
     mut renderer: NonSendMut<Renderer>,
-    time: Res<Time<Fixed>>,
+    _time: Res<Time<Fixed>>,
     mut tetrs: Query<(&Tetr, &mut Updated, Has<Locked>)>,
     mut buffer_update: ResMut<BufferUpdate>,
-    mut _commands: Commands,
+    _commands: Commands,
 ) {
     //static mut FRAME_COUNT: u32 = 0;
     //static mut LAST_TIME: f32 = 0.0;
@@ -557,14 +548,15 @@ pub fn render(
 
     buffer_update.0 = true; // TODO: remove this and fix the buffer update logic. This is just to get it working not - performance isn't a concern right now
 
-    let vec = match buffer_update.0 {
-        false => tetrs
+    let vec = if buffer_update.0 {
+        tetrs
+            .iter()
+            .map(|e| e.0)
+            .collect::<Vec<&Tetr>>()
+    } else {
+        tetrs
             .iter()
             .filter(|e| e.1.0)
-            .map(|e| e.0)
-            .collect::<Vec<&Tetr>>(),
-        true => tetrs
-            .iter()
             .map(|e| e.0)
             .collect::<Vec<&Tetr>>()
     };
@@ -572,30 +564,25 @@ pub fn render(
 
     let e = vec
         .iter()
-        .map(|e| e.as_drawables())
-        .flatten()
+        .flat_map(|e| e.as_drawables())
         .filter(|e| e.shape_data[7] != 0.0)
-        .map(|d| d.as_bytes().to_vec())
-        .flatten()
+        .flat_map(|d| d.as_bytes().to_vec())
         .collect::<Vec<u8>>();
 
     if !e.is_empty() {
-        match buffer_update.0 {
-            false => {
-                let offset = tetrs.iter().filter(|e| e.2).map(|e| e.0.offset()).sum::<u64>();
+        if buffer_update.0 {
+            // fill e with 0s until size of buffer is reached to overwrite old data
+            let mut e = e;
+            e.resize(renderer.drawables_buffer.size() as usize, 0);
+            renderer
+                .queue
+                .write_buffer(&renderer.drawables_buffer, 0, e.as_slice());
+        } else {
+            let offset = tetrs.iter().filter(|e| e.2).map(|e| e.0.offset()).sum::<u64>();
 
-                renderer
-                    .queue
-                    .write_buffer(&renderer.drawables_buffer, offset as u64, e.as_slice());
-            },
-            true => {
-                // fill e with 0s until size of buffer is reached to overwrite old data
-                let mut e = e;
-                e.resize(renderer.drawables_buffer.size() as usize, 0);
-                renderer
-                    .queue
-                    .write_buffer(&renderer.drawables_buffer, 0, e.as_slice());
-            }
+            renderer
+                .queue
+                .write_buffer(&renderer.drawables_buffer, offset, e.as_slice());
         }
     }
 
@@ -611,7 +598,7 @@ pub fn render(
     //}
 
     for mut e in tetrs.iter_mut() {
-        e.1 .0 = false;
+        e.1.0 = false;
     }
     buffer_update.0 = false;
 }

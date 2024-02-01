@@ -1,9 +1,8 @@
-use crate::components::{BufferUpdate, Drawable, Locked, Position, Tetr, TetrisGame, Tetromino, Updated};
+use crate::components::{BufferUpdate, Locked, Position, Tetr, TetrisGame, Tetromino, Updated};
 use crate::render::{render, render_events, Renderer};
-use bevy::app::{App, DynEq, MainScheduleOrder, PostUpdate, Startup};
+use bevy::app::{App, MainScheduleOrder, PostUpdate, Startup};
 use bevy::ecs::schedule::{ExecutorKind, ScheduleLabel};
 use bevy::prelude::*;
-use bevy::reflect::List;
 use bevy::tasks::block_on;
 use bevy::time::TimerMode;
 use bevy::winit::{winit_runner, WinitWindows};
@@ -32,16 +31,16 @@ impl bevy::app::Plugin for Plugin {
             .add_systems(Last, lock_pieces)
             .insert_resource(TetrisGame::default())
             .insert_resource(BufferUpdate(false))
-            .set_runner(|mut app| winit_runner(app));
+            .set_runner(winit_runner);
 
         let mut order = app.world.resource_mut::<MainScheduleOrder>();
         order.insert_after(PostUpdate, Render);
     }
 }
 
-fn setup_rendering(mut world: &mut World) {
-    let mut window_map = world.get_non_send_resource_mut::<WinitWindows>().unwrap();
-    let mut window = window_map
+fn setup_rendering(world: &mut World) {
+    let window_map = world.get_non_send_resource::<WinitWindows>().unwrap();
+    let window = window_map
         .windows
         .values()
         .collect::<Vec<&Window>>()
@@ -64,7 +63,7 @@ struct MovePieceTimer(Timer);
 
 fn move_piece(
     mut query: Query<(&mut Tetr, &mut Updated), Without<Locked>>,
-    mut game: ResMut<TetrisGame>,
+    game: ResMut<TetrisGame>,
     time: Res<Time>,
     mut timer: ResMut<MovePieceTimer>,
     input: Res<Input<KeyCode>>,
@@ -83,41 +82,35 @@ fn move_piece(
     // FIXME: Fix moving into other pieces sideways
     if input.just_pressed(KeyCode::Left) {
         for (mut tetr, mut updated) in query.iter_mut() {
-            if !updated.0 || true {
-                let pos = tetr.positions.clone();
-                tetr.positions.iter_mut().for_each(|p| p.x -= 1);
-                if tetr.positions.iter().any(|p| p.x < 0) {
-                    tetr.positions = pos;
-                }
-                updated.0 = true;
+            let pos = tetr.positions.clone();
+            tetr.positions.iter_mut().for_each(|p| p.x -= 1);
+            if tetr.positions.iter().any(|p| p.x < 0) {
+                tetr.positions = pos;
             }
+            updated.0 = true;
         }
     }
 
     if input.just_pressed(KeyCode::Right) {
         for (mut tetr, mut updated) in query.iter_mut() {
-            if !updated.0 || true {
-                let pos = tetr.positions.clone();
-                tetr.positions.iter_mut().for_each(|p| p.x += 1);
-                if tetr.positions.iter().any(|p| p.x > 9) {
-                    tetr.positions = pos;
-                }
-                updated.0 = true;
+            let pos = tetr.positions.clone();
+            tetr.positions.iter_mut().for_each(|p| p.x += 1);
+            if tetr.positions.iter().any(|p| p.x > 9) {
+                tetr.positions = pos;
             }
+            updated.0 = true;
         }
     }
 
     if input.just_pressed(KeyCode::Down) {
         for (mut tetr, mut updated) in query.iter_mut() {
-            if !updated.0 {
-                tetr.positions.iter_mut().for_each(|p| p.y -= 1);
-                updated.0 = true;
-            }
+            tetr.positions.iter_mut().for_each(|p| p.y -= 1);
+            updated.0 = true;
         }
     }
 
     if input.just_pressed(KeyCode::Up) {
-        for (mut tetr, mut updated) in query.iter_mut() {
+        for (mut tetr, _) in query.iter_mut() {
             tetr.spin();
         }
     }
@@ -125,18 +118,15 @@ fn move_piece(
     if input.just_pressed(KeyCode::Space) {
         // Move piece all the way down until it hits something
         for (mut tetr, mut updated) in query.iter_mut() {
-            if !updated.0 {
-                while !check_field_under(&game, &tetr.positions) {
-                    tetr.positions.iter_mut().for_each(|p| p.y -= 1);
-                }
-                updated.0 = true;
+            while !check_field_under(&game, &tetr.positions) {
+                tetr.positions.iter_mut().for_each(|p| p.y -= 1);
             }
+            updated.0 = true;
         }
     }
-
 }
 
-fn spawn_new_piece(mut commands: Commands, mut query: Query<(&mut Tetr, &mut Updated, Entity), Without<Locked>>, mut rand: ResMut<GlobalRng>) {
+fn spawn_new_piece(mut commands: Commands, query: Query<(&mut Tetr, &mut Updated, Entity), Without<Locked>>, mut rand: ResMut<GlobalRng>) {
     if query.is_empty() {
         let tetromino = match rand.u8(0..7) {
             0 => Tetromino::I,
@@ -152,7 +142,7 @@ fn spawn_new_piece(mut commands: Commands, mut query: Query<(&mut Tetr, &mut Upd
     }
 }
 
-fn check_field_under(game: &TetrisGame, positions: &Vec<Position>) -> bool {
+fn check_field_under(game: &TetrisGame, positions: &[Position]) -> bool {
     positions.iter().any(|p| p.y == 0 || game.field[p.y as usize - 1usize][p.x as usize])
 }
 
@@ -168,13 +158,13 @@ fn update_board(mut game: ResMut<TetrisGame>, mut tetr: Query<&mut Tetr, With<Lo
     while row < game.field.len() {
         if game.field[row].iter().all(|&b| b) {
             game.field[row] = [false; 10];
-            for mut tetr in tetr.iter_mut() {
+            for mut tetr in &mut tetr {
                 tetr.positions.retain(|p| p.y != row as u32 as i32);
             }
             buffer_update.0 = true;
             removed_rows.push(row);
         }
-        row+=1;
+        row += 1;
     }
 
     for (i, e) in removed_rows.iter_mut().enumerate() {
@@ -184,12 +174,12 @@ fn update_board(mut game: ResMut<TetrisGame>, mut tetr: Query<&mut Tetr, With<Lo
                 if p.y > (e as i32) {
                     p.y -= 1;
                 }
-            })
+            });
         });
     }
 
     if !removed_rows.is_empty() {
-        game.field = [[false; 10]; 40]
+        game.field = [[false; 10]; 40];
     }
 
     // We need to remove the locked drawables to make it work...
@@ -201,7 +191,7 @@ fn update_board(mut game: ResMut<TetrisGame>, mut tetr: Query<&mut Tetr, With<Lo
 }
 
 // TODO: might need some work as the player might want to slide the piece to the left or right when touching the ground
-fn lock_pieces(mut commands: Commands, query: Query<(Entity, &Tetr), Without<Locked>>, mut game: Res<TetrisGame>) {
+fn lock_pieces(mut commands: Commands, query: Query<(Entity, &Tetr), Without<Locked>>, game: Res<TetrisGame>) {
     for (entity, tetr) in query.iter() {
         if check_field_under(&game, &tetr.positions) {
             commands.get_entity(entity).unwrap().insert(Locked);
