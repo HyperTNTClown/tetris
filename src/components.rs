@@ -1,4 +1,9 @@
+use std::collections::VecDeque;
+use std::fmt::{Debug, Display, Formatter};
+use std::marker::PhantomData;
+use std::mem::forget;
 use bevy::prelude::*;
+use bevy_turborand::{DelegatedRng, GlobalRng};
 
 #[derive(Resource)]
 pub struct BufferUpdate(pub(crate) bool);
@@ -12,6 +17,60 @@ pub struct Locked;
 
 // FIXME: MAYBE SPLIT SHAPE_DATA INTO TWO VEC4s
 
+#[derive(Resource, Debug, Default, Clone, Copy)]
+pub struct Score {
+    pub score: u32,
+    pub level: u32,
+}
+
+impl Score {
+    pub fn increase(&mut self, cleared_lines: u32) -> bool {
+        match cleared_lines {
+            1 => self.score += 1,
+            2 => self.score += 3,
+            3 => self.score += 5,
+            4 => self.score += 8,
+            _ => {}
+        }
+
+        if self.score >= self.goal() {
+            self.score = 0;
+            self.level += 1;
+            return true;
+        }
+        false
+    }
+
+    pub fn goal(&self) -> u32 {
+        5 * (self.level + 1)
+    }
+
+    pub fn timer(&self) -> Timer {
+        match self.level {
+            0 => Timer::from_seconds(1.0, TimerMode::Repeating),
+            1 => Timer::from_seconds(0.79300, TimerMode::Repeating),
+            2 => Timer::from_seconds(0.61780, TimerMode::Repeating),
+            3 => Timer::from_seconds(0.47273, TimerMode::Repeating),
+            4 => Timer::from_seconds(0.35520, TimerMode::Repeating),
+            5 => Timer::from_seconds(0.26200, TimerMode::Repeating),
+            6 => Timer::from_seconds(0.18968, TimerMode::Repeating),
+            7 => Timer::from_seconds(0.13473, TimerMode::Repeating),
+            8 => Timer::from_seconds(0.09388, TimerMode::Repeating),
+            9 => Timer::from_seconds(0.06415, TimerMode::Repeating),
+            10 => Timer::from_seconds(0.04298, TimerMode::Repeating),
+            11 => Timer::from_seconds(0.02822, TimerMode::Repeating),
+            12 => Timer::from_seconds(0.01815, TimerMode::Repeating),
+            13 => Timer::from_seconds(0.01144, TimerMode::Repeating),
+            14 => Timer::from_seconds(0.00706, TimerMode::Repeating),
+            15 => Timer::from_seconds(0.00426, TimerMode::Repeating),
+            16 => Timer::from_seconds(0.00252, TimerMode::Repeating),
+            17 => Timer::from_seconds(0.00146, TimerMode::Repeating),
+            18 => Timer::from_seconds(0.00082, TimerMode::Repeating),
+            19 | _ => Timer::from_seconds(0.00046, TimerMode::Repeating),
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Component)]
 pub struct Drawable {
@@ -20,7 +79,6 @@ pub struct Drawable {
 }
 
 impl Drawable {
-
     #[allow(dead_code)]
     pub fn new(x: isize, y: isize, z: isize, shape: Option<u32>) -> Self {
         let shape = shape.unwrap_or(0);
@@ -56,6 +114,7 @@ impl Default for Drawable {
 }
 
 unsafe impl bytemuck::Zeroable for Drawable {}
+
 unsafe impl bytemuck::Pod for Drawable {}
 
 #[derive(Clone, Debug)]
@@ -84,7 +143,7 @@ pub struct TetrisGame {
     pub field: [[bool; 10]; 40],
     pub next: Option<Tetromino>,
     pub hold: Option<Tetromino>,
-    pub score: u32,
+    pub score: Score,
     pub level: u32,
 }
 
@@ -94,13 +153,13 @@ impl Default for TetrisGame {
             field: [[false; 10]; 40],
             next: None,
             hold: None,
-            score: 0,
+            score: Score::default(),
             level: 0,
         }
     }
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Copy, Clone)]
 pub enum Tetromino {
     I,
     O,
@@ -111,8 +170,21 @@ pub enum Tetromino {
     L,
 }
 
-impl Tetromino {
+impl Display for Tetromino {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Tetromino::I => write!(f, "I"),
+            Tetromino::O => write!(f, "O"),
+            Tetromino::T => write!(f, "T"),
+            Tetromino::S => write!(f, "S"),
+            Tetromino::Z => write!(f, "Z"),
+            Tetromino::J => write!(f, "J"),
+            Tetromino::L => write!(f, "L"),
+        }
+    }
+}
 
+impl Tetromino {
     /// Cyan I,
     /// Yellow O,
     /// Purple T,
@@ -439,7 +511,6 @@ impl Tetromino {
         }
         drawables
     }
-
 }
 
 #[derive(Component)]
@@ -471,10 +542,10 @@ impl Tetr {
     }
 
     pub fn offset(&self) -> u64 {
-        std::mem::size_of::<Drawable>() as u64 * self.positions.len() as u64
+        (std::mem::size_of::<Drawable>() * self.positions.len()) as u64
     }
 
-    pub fn spin (&mut self) {
+    pub fn spin(&mut self) {
         self.positions = self.tetromino.try_basic_rotation(self.positions.as_slice(), &self.rotation);
         while self.positions.iter().any(|p| p.x < 0) {
             self.positions.iter_mut().for_each(|p| p.x += 1);
@@ -488,6 +559,49 @@ impl Tetr {
             Rotation::Ninety => Rotation::OneEighty,
             Rotation::OneEighty => Rotation::TwoHundredSeventy,
             Rotation::TwoHundredSeventy => Rotation::Zero,
+        }
+    }
+}
+
+#[derive(Resource)]
+pub struct TetroQueue {
+    queue: VecDeque<Tetromino>
+}
+
+impl Default for TetroQueue {
+    fn default() -> Self {
+        TetroQueue {
+            queue: VecDeque::new()
+        }
+    }
+
+}
+
+impl TetroQueue {
+
+    pub fn len(&self) -> usize {
+        self.queue.len()
+    }
+
+    pub fn push(&mut self, tetromino: Tetromino) {
+        self.queue.push_back(tetromino);
+    }
+
+    pub fn pop(&mut self) -> Option<Tetromino> {
+        self.queue.pop_front()
+    }
+
+    pub fn get(&self, index: usize) -> Option<&Tetromino> {
+        self.queue.get(index)
+    }
+
+
+    pub fn fill_queue(&mut self, mut rng: &mut GlobalRng) {
+        let mut bag = vec![Tetromino::I, Tetromino::O, Tetromino::T, Tetromino::S, Tetromino::Z, Tetromino::J, Tetromino::L];
+        for _ in 0..7 {
+            let index = rng.u8(0..bag.len() as u8) as usize;
+            let tetromino = bag.remove(index);
+            self.push(tetromino);
         }
     }
 }

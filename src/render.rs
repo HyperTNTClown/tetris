@@ -1,9 +1,13 @@
-use crate::components::{BufferUpdate, Drawable, Locked, Tetr, Updated};
+use std::sync::Arc;
+use crate::components::{BufferUpdate, Drawable, Locked, Score, Tetr, TetrisGame, Tetromino, TetroQueue, Updated};
 use bevy::prelude::{Commands, EventReader, Has, NonSendMut, Query, Res, ResMut};
 use bevy::time::{Fixed, Time};
+use bevy::utils::default;
 use bevy::window::{RequestRedraw, WindowResized};
+use glyphon::{Attrs, Buffer, Color, Family, FontSystem, Metrics, Resolution, Shaping, SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer};
+use glyphon::fontdb::Source;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
-use wgpu::{BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BufferBindingType, BufferUsages, include_wgsl, SamplerBindingType, ShaderStages, TextureDimension, TextureFormat};
+use wgpu::{BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BufferBindingType, BufferUsages, include_wgsl, MultisampleState, SamplerBindingType, ShaderStages, TextureDimension, TextureFormat};
 use winit::dpi::LogicalSize;
 
 use winit::window::Window;
@@ -13,7 +17,7 @@ use log::info;
 // and updated once we stop writing to the primary one... We wanna increase our FPS
 // https://www.youtube.com/watch?v=YNFaOnhaaso
 
-// TODO: More passes for deffered rendering???
+// TODO: More passes for deferred rendering???
 // Should be easier to do normals etc, but not sure if do vertex shader etc... Or rather compute ones
 // Acerola has a video about Lethal Company's rendering
 // https://en.wikipedia.org/wiki/Ray_marching#Deferred_shading (Pretty interesting stuff)
@@ -59,11 +63,18 @@ pub struct Renderer {
     surface: wgpu::Surface,
     texture_bind_group: wgpu::BindGroup,
     texture_render_pipeline: wgpu::RenderPipeline,
+    text_atlas: TextAtlas,
+    text_renderer: TextRenderer,
+    font_system: FontSystem,
+    swash_cache: SwashCache,
+    text_buffer: Buffer,
     uniforms: Uniforms,
     uniforms_buffer: wgpu::Buffer,
     uniforms_buffer_bind_group: wgpu::BindGroup,
     vertex_buffer: wgpu::Buffer,
     window: &'static Window,
+    score: Score,
+    next_tetro: Option<Tetromino>
 }
 
 impl Renderer {
@@ -223,7 +234,7 @@ impl Renderer {
                     conservative: false,
                 },
                 depth_stencil: None,
-                multisample: wgpu::MultisampleState {
+                multisample: MultisampleState {
                     count: 1,
                     mask: !0,
                     alpha_to_coverage_enabled: false,
@@ -330,9 +341,18 @@ impl Renderer {
                 }),
                 primitive: wgpu::PrimitiveState::default(),
                 depth_stencil: None,
-                multisample: wgpu::MultisampleState::default(),
+                multisample: MultisampleState::default(),
                 multiview: None,
             });
+
+        let mut text_atlas = TextAtlas::new(&device, &queue, config.format);
+
+        let text_renderer = TextRenderer::new(&mut text_atlas, &device, MultisampleState::default(), None);
+
+        let mut font_system = FontSystem::new_with_fonts(vec![Source::Binary(Arc::new(include_bytes!("../assets/fonts/DigitTech14-Regular.ttf")))]);
+        let swash_cache = SwashCache::new();
+
+        let text_buffer = Buffer::new(&mut font_system, Metrics::new(30f32, 42f32));
 
         Self {
             surface,
@@ -350,8 +370,15 @@ impl Renderer {
             _drawables: drawables,
             drawables_buffer,
             drawables_buffer_bind_group,
+            text_atlas,
+            text_renderer,
+            font_system,
+            swash_cache,
+            text_buffer,
             render_texture,
             texture_bind_group,
+            score: Score::default(),
+            next_tetro: None,
             window,
         }
     }
@@ -408,7 +435,28 @@ impl Renderer {
             render_pass.draw(0..6, 0..1);
         }
 
+        self.text_buffer.set_size(&mut self.font_system, self.size.width as f32, self.size.height as f32);
+        self.text_buffer.set_text(&mut self.font_system, &*(format!("LINES - {}/{}\nLEVEL - {}\nNEXT TETRO - {}", self.score.score, self.score.goal(), self.score.level, self.next_tetro.unwrap_or(Tetromino::O))), Attrs::new().family(Family::Name("Digit Tech 14")).color(Color::rgb(255, 255, 255)), Shaping::Advanced);
+        self.text_buffer.shape_until_scroll(&mut self.font_system);
+
         // Apply Texture to surface_view
+        self.text_renderer.prepare(&self.device, &self.queue, &mut self.font_system, &mut self.text_atlas, Resolution {
+            width: self.size.width,
+            height: self.size.height,
+        }, vec![TextArea {
+            buffer: &self.text_buffer,
+            left: 10.0,
+            top: 10.0,
+            scale: 2.0,
+            bounds: TextBounds {
+                left: 0,
+                top: 0,
+                right: 600,
+                bottom: 360,
+            },
+            default_color: Color::rgb(255, 255, 255),
+        }], &mut self.swash_cache).unwrap();
+
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Apply Render Pass"),
@@ -428,14 +476,8 @@ impl Renderer {
             render_pass.set_bind_group(0, &self.uniforms_buffer_bind_group, &[]);
             render_pass.set_bind_group(1, &self.texture_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            //let rect = (
-            //    ((self.uniforms.window_size[0] - (self.uniforms.window_size[0] * self.uniforms.scale)) / 2.0) as u32,
-            //    ((self.uniforms.window_size[1] - (self.uniforms.window_size[1] * self.uniforms.scale)) / 2.0) as u32,
-            //    self.uniforms.window_size[0].min(self.uniforms.window_size[0] * self.uniforms.scale) as u32,
-            //    self.uniforms.window_size[1].min(self.uniforms.window_size[1] * self.uniforms.scale) as u32,
-            //);
-            //render_pass.set_scissor_rect(rect.0, rect.1, rect.2, rect.3);
             render_pass.draw(0..6, 0..1);
+            self.text_renderer.render(&self.text_atlas, &mut render_pass).unwrap();
         }
         // submit will accept anything that implements IntoIter
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -530,6 +572,8 @@ pub fn render(
     mut tetrs: Query<(&Tetr, &mut Updated, Has<Locked>)>,
     mut buffer_update: ResMut<BufferUpdate>,
     _commands: Commands,
+    game: Res<TetrisGame>,
+    queue: Res<TetroQueue>
 ) {
     //static mut FRAME_COUNT: u32 = 0;
     //static mut LAST_TIME: f32 = 0.0;
@@ -586,6 +630,8 @@ pub fn render(
         }
     }
 
+    renderer.score = game.score;
+    renderer.next_tetro = queue.get(0).copied();
     renderer
         .queue
         .write_buffer(&renderer.uniforms_buffer, 0, renderer.uniforms.as_bytes());

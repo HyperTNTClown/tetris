@@ -70,7 +70,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // finally works...
 
     let ray_origin = vec3 < f32 > (0., 0., -3.);
-    let ray_direction = normalize(vec3 < f32 > (uv, 1.));
+    let ray_direction = normalize(vec3 < f32 > (uv*1.1, 1.));
     var col = vec3 < f32 > (0.);
 
     var t : Surface;

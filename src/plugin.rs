@@ -1,4 +1,5 @@
-use crate::components::{BufferUpdate, Locked, Position, Tetr, TetrisGame, Tetromino, Updated};
+use std::process::exit;
+use crate::components::{BufferUpdate, Locked, Position, Score, Tetr, TetrisGame, Tetromino, TetroQueue, Updated};
 use crate::render::{render, render_events, Renderer};
 use bevy::app::{App, MainScheduleOrder, PostUpdate, Startup};
 use bevy::ecs::schedule::{ExecutorKind, ScheduleLabel};
@@ -8,6 +9,7 @@ use bevy::time::TimerMode;
 use bevy::winit::{winit_runner, WinitWindows};
 use bevy_turborand::{DelegatedRng, GlobalRng};
 use bevy_turborand::prelude::{RngPlugin};
+use log::log;
 use winit::window::Window;
 
 pub(crate) struct Plugin;
@@ -49,9 +51,17 @@ fn setup_rendering(world: &mut World) {
     let mut renderer = block_on(Renderer::new(window));
     renderer.resize(window.inner_size().to_logical(1.0));
     world.insert_non_send_resource(renderer);
+    //world.insert_resource(Score::default());
+
+    let rand = world.get_resource_mut::<GlobalRng>().unwrap();
+
+    let mut queue = TetroQueue::default();
+    queue.fill_queue(rand.into_inner());
+    println!("{:?}", queue.len());
+    world.insert_resource(queue);
 
     world.insert_resource(MovePieceTimer(Timer::from_seconds(
-        0.5,
+        1.0,
         TimerMode::Repeating,
     )));
 
@@ -126,19 +136,17 @@ fn move_piece(
     }
 }
 
-fn spawn_new_piece(mut commands: Commands, query: Query<(&mut Tetr, &mut Updated, Entity), Without<Locked>>, mut rand: ResMut<GlobalRng>) {
+fn spawn_new_piece(mut commands: Commands, query: Query<(&mut Tetr, &mut Updated, Entity), Without<Locked>>, mut rand: ResMut<GlobalRng>, mut queue: ResMut<TetroQueue>, game: Res<TetrisGame>) {
     if query.is_empty() {
-        let tetromino = match rand.u8(0..7) {
-            0 => Tetromino::I,
-            1 => Tetromino::O,
-            2 => Tetromino::T,
-            3 => Tetromino::S,
-            4 => Tetromino::Z,
-            5 => Tetromino::J,
-            6 => Tetromino::L,
-            _ => unreachable!()
-        };
-        commands.spawn(Tetr::new(tetromino)).insert(Updated(true));
+        let tetromino = queue.pop().unwrap_or(Tetromino::O);
+        let tetr = Tetr::new(tetromino);
+        // check if the piece can be spawned
+        if tetr.positions.iter().any(|p| game.field[p.y as usize][p.x as usize]) {
+            //exit(0);
+            return;
+        }
+        commands.spawn(tetr).insert(Updated(true));
+        if queue.len() < 2 { queue.fill_queue(rand.into_inner()); }
     }
 }
 
@@ -146,7 +154,7 @@ fn check_field_under(game: &TetrisGame, positions: &[Position]) -> bool {
     positions.iter().any(|p| p.y == 0 || game.field[p.y as usize - 1usize][p.x as usize])
 }
 
-fn update_board(mut game: ResMut<TetrisGame>, mut tetr: Query<&mut Tetr, With<Locked>>, mut buffer_update: ResMut<BufferUpdate>) {
+fn update_board(mut game: ResMut<TetrisGame>, mut tetr: Query<&mut Tetr, With<Locked>>, mut buffer_update: ResMut<BufferUpdate>, mut move_timer: ResMut<MovePieceTimer>) {
     for position in tetr.iter().flat_map(|t| t.positions.iter()) {
         game.field[position.y as usize][position.x as usize] = true;
     }
@@ -180,6 +188,11 @@ fn update_board(mut game: ResMut<TetrisGame>, mut tetr: Query<&mut Tetr, With<Lo
 
     if !removed_rows.is_empty() {
         game.field = [[false; 10]; 40];
+    }
+
+    //game.score.score += removed_rows.len() as u32;
+    if game.score.increase(removed_rows.len() as u32) {
+        move_timer.0 = game.score.timer();
     }
 
     // We need to remove the locked drawables to make it work...
