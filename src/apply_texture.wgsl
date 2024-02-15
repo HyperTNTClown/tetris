@@ -42,7 +42,7 @@ var<uniform> uniforms: Uniforms;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    var uv = in.position.xy / (uniforms.window_size.xy * vec2<f32>(1., 0.5));
+    var uv = (in.position.xy) / (uniforms.window_size.xy);
 
     ////var uv = in.position.xy;
 

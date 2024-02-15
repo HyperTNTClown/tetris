@@ -8,17 +8,17 @@ use glyphon::{Attrs, Buffer, Color, Family, FontSystem, Metrics, Resolution, Sha
 use glyphon::fontdb::Source;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BufferBindingType, BufferUsages, include_wgsl, MultisampleState, SamplerBindingType, ShaderStages, TextureDimension, TextureFormat};
-use winit::dpi::LogicalSize;
+use winit::dpi::{LogicalSize, PhysicalSize};
 
 use winit::window::Window;
 use log::info;
 
 const VERTICES: &[Vertex] = &[
     Vertex {
-        position: [-1.0, 0.0],
+        position: [-1.0, -1.0],
     },
     Vertex {
-        position: [1.0, 0.0],
+        position: [1.0, -1.0],
     },
     Vertex {
         position: [-1.0, 1.0],
@@ -27,7 +27,7 @@ const VERTICES: &[Vertex] = &[
         position: [1.0, 1.0],
     },
     Vertex {
-        position: [1.0, 0.0],
+        position: [1.0, -1.0],
     },
     Vertex {
         position: [-1.0, 1.0],
@@ -370,16 +370,16 @@ impl Renderer {
         }
     }
 
-    pub(crate) fn resize(&mut self, new_size: LogicalSize<f32>) {
+    pub(crate) fn resize(&mut self, new_size: LogicalSize<f32>, physical: PhysicalSize<u32>) {
         info!("Resizing sf: {}, ns: {:?}", self.window.scale_factor(), new_size);
-        let physical = new_size.to_physical(self.window.scale_factor());
+        //let physical = new_size.to_physical(self.window.scale_factor());
         if physical.width > 0 && physical.height > 0 {
             self.size = physical;
             self.config.width = physical.width;
             self.config.height = physical.height;
-            self.surface.configure(&self.device, &self.config);
             self.uniforms.window_size = [physical.width as f32, physical.height as f32];
             self.uniforms.window_scale = self.window.scale_factor() as f32;
+            self.surface.configure(&self.device, &self.config);
             self.window.request_redraw();
         }
     }
@@ -650,8 +650,9 @@ pub fn render_events(
         renderer.render().unwrap();
     });
     resize.read().for_each(|event| {
-        let size = LogicalSize::new(event.width, event.height * 2f32);
-        renderer.resize(size);
+        // event.window
+        // let size = LogicalSize::new(event.width, event.height);
+        // renderer.resize(size);
     });
 
     renderer.uniforms.time = instant.elapsed_seconds_wrapped();

@@ -49,7 +49,13 @@ fn setup_rendering(world: &mut World) {
         .as_slice()[0];
 
     let mut renderer = block_on(Renderer::new(window));
-    renderer.resize(window.inner_size().to_logical(1.0));
+    renderer.resize(window.inner_size().to_logical(1.0), window.inner_size());
+    // if on wasm32
+    // if cfg!(target_arch = "wasm32") {
+    //     renderer.resize(winit::dpi::PhysicalSize::new(1280, 1440).to_logical(1.0));
+    // } else {
+    //     renderer.resize(window.inner_size().to_logical(1.0));
+    // }
     world.insert_non_send_resource(renderer);
     //world.insert_resource(Score::default());
 
