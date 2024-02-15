@@ -13,19 +13,6 @@ use winit::dpi::LogicalSize;
 use winit::window::Window;
 use log::info;
 
-// TODO: Think about maybe using two Drawable-buffers which can be switched so when writing to one the other (cached one) can be used
-// and updated once we stop writing to the primary one... We wanna increase our FPS
-// https://www.youtube.com/watch?v=YNFaOnhaaso
-
-// TODO: More passes for deferred rendering???
-// Should be easier to do normals etc, but not sure if do vertex shader etc... Or rather compute ones
-// Acerola has a video about Lethal Company's rendering
-// https://en.wikipedia.org/wiki/Ray_marching#Deferred_shading (Pretty interesting stuff)
-// https://en.wikipedia.org/wiki/Deferred_shading
-// https://webgpu.github.io/webgpu-samples/samples/deferredRendering (sample in Typescript, but should be pretty easy to translate)
-
-// Raymarching Volumetrics???
-
 const VERTICES: &[Vertex] = &[
     Vertex {
         position: [-1.0, 0.0],
