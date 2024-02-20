@@ -1,5 +1,5 @@
 use std::process::exit;
-use crate::components::{BufferUpdate, Locked, Position, Score, Tetr, TetrisGame, Tetromino, TetroQueue, Updated};
+use crate::components::{BufferUpdate, Glitch, Locked, Position, Score, Tetr, TetrisGame, Tetromino, TetroQueue, Updated};
 use crate::render::{render, render_events, Renderer};
 use bevy::app::{App, MainScheduleOrder, PostUpdate, Startup};
 use bevy::ecs::schedule::{ExecutorKind, ScheduleLabel};
@@ -70,6 +70,8 @@ fn setup_rendering(world: &mut World) {
         1.0,
         TimerMode::Repeating,
     )));
+
+    world.insert_resource(Glitch::default());
 
     info!("Rendering is set up!");
 }
@@ -160,7 +162,7 @@ fn check_field_under(game: &TetrisGame, positions: &[Position]) -> bool {
     positions.iter().any(|p| p.y == 0 || game.field[p.y as usize - 1usize][p.x as usize])
 }
 
-fn update_board(mut game: ResMut<TetrisGame>, mut tetr: Query<&mut Tetr, With<Locked>>, mut buffer_update: ResMut<BufferUpdate>, mut move_timer: ResMut<MovePieceTimer>) {
+fn update_board(mut game: ResMut<TetrisGame>, mut tetr: Query<&mut Tetr, With<Locked>>, mut buffer_update: ResMut<BufferUpdate>, mut move_timer: ResMut<MovePieceTimer>, mut glitch: ResMut<Glitch>) {
     for position in tetr.iter().flat_map(|t| t.positions.iter()) {
         game.field[position.y as usize][position.x as usize] = true;
     }
@@ -194,6 +196,7 @@ fn update_board(mut game: ResMut<TetrisGame>, mut tetr: Query<&mut Tetr, With<Lo
 
     if !removed_rows.is_empty() {
         game.field = [[false; 10]; 40];
+        glitch.0 = removed_rows.len() as f32;
     }
 
     //game.score.score += removed_rows.len() as u32;

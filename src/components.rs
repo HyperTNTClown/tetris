@@ -12,6 +12,9 @@ pub struct Updated(pub(crate) bool);
 #[derive(Component)]
 pub struct Locked;
 
+#[derive(Resource, Default)]
+pub struct Glitch(pub(crate) f32);
+
 
 // FIXME: MAYBE SPLIT SHAPE_DATA INTO TWO VEC4s
 

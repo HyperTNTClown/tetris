@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use crate::components::{BufferUpdate, Drawable, Locked, Score, Tetr, TetrisGame, Tetromino, TetroQueue, Updated};
+use crate::components::{BufferUpdate, Drawable, Glitch, Locked, Score, Tetr, TetrisGame, Tetromino, TetroQueue, Updated};
 use bevy::prelude::{Commands, EventReader, Has, NonSendMut, Query, Res, ResMut};
 use bevy::time::{Fixed, Time};
 use bevy::utils::default;
@@ -504,7 +504,7 @@ unsafe impl bytemuck::Zeroable for Vertex {}
 struct Uniforms {
     pub mouse: [f32; 2],
     pub time: f32,
-    pub pad: f32,
+    pub glitch: f32,
     pub window_size: [f32; 2],
     pub scale: f32,
     pub window_scale: f32,
@@ -515,7 +515,7 @@ impl Default for Uniforms {
         Self {
             mouse: [0.0, 0.0],
             time: 0.0,
-            pad: 0.0,
+            glitch: 0.0,
             window_size: [0.0, 0.0],
             scale: SCALE,
             window_scale: 1.0,
@@ -641,6 +641,7 @@ pub fn render_events(
     mut redraw: EventReader<RequestRedraw>,
     mut resize: EventReader<WindowResized>,
     instant: Res<Time<Fixed>>,
+    mut glitch: ResMut<Glitch>,
 ) {
     redraw.read().for_each(|_| {
         println!("redraw");
@@ -656,6 +657,10 @@ pub fn render_events(
     });
 
     renderer.uniforms.time = instant.elapsed_seconds_wrapped();
+    renderer.uniforms.glitch = glitch.0;
+    if glitch.0 > 0f32 {
+        glitch.0 -= 0.01;
+    }
     //renderer.uniforms.window_size = [
     //    2560.0,
     //    1440.0,
