@@ -56,18 +56,7 @@ var<uniform> drawables: array<Drawable, 256>;
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let aspect = uniforms.window_size.x / uniforms.window_size.y;
 
-    //var uv = in.coord.xy;
-
-    //uv.y = .5 - uv.y;
-    //uv = uv * 2. - vec2<f32>(1., 0.5);
-    //uv.x *= aspect;
-
     var uv = (vec2<f32>(in.coord.x, .5 - in.coord.y) * 2. - vec2<f32>(1., 0.5)) * aspect * .5;
-
-    // uv.y = .5 - uv.y;
-    // uv = uv * 2. - vec2<f32>(1., 0.5);
-    // uv.x *= aspect;
-    // finally works...
 
     let ray_origin = vec3 < f32 > (0., 0., -3.);
     let ray_direction = normalize(vec3 < f32 > (uv*1.1, 1.));
@@ -128,11 +117,11 @@ fn scene(p: vec3<f32>) -> Surface {
             }
         } else if (d.shape_data2.w == 2.0) {
             var box_pos = tetris_pos_to_world_pos(d.position.xy);
-            var box_size = vec3<f32>(0.125, 0.125, .05);
-            var box = sdBox(p - box_pos, box_size, vec3<f32>(1.0, 0.0, 0.0));
+            var box_size = vec3<f32>(d.shape_data.x, d.shape_data.y, d.shape_data.z);
+            var box = sdBox(p - box_pos, box_size, vec3<f32>(d.shape_data2.x, d.shape_data2.y, d.shape_data2.z));
             if (box.sd < res.sd) {
                 res.sd = box.sd;
-                res.col = vec3<f32>(d.shape_data2.x, d.shape_data2.y, d.shape_data2.z);
+                res.col = box.col;
             }
         }
 

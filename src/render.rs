@@ -1,9 +1,11 @@
 use std::sync::Arc;
-use crate::components::{BufferUpdate, Drawable, Glitch, Locked, Score, Tetr, TetrisGame, Tetromino, TetroQueue, Updated};
-use bevy::prelude::{Commands, EventReader, Has, NonSendMut, Query, Res, ResMut};
+use crate::components::{BufferUpdate, Drawable, Glitch, Locked, RenderMarker, Score, Tetr, TetrisGame, Tetromino, TetroQueue, Updated};
+use bevy::prelude::{Commands, EventReader, Has, Local, NonSendMut, Query, Res, ResMut, World};
 use bevy::time::{Fixed, Time};
 use bevy::utils::default;
 use bevy::window::{RequestRedraw, WindowResized};
+use bevy_async_task::AsyncTask;
+use extend_lifetime::ExtendableLife;
 use glyphon::{Attrs, Buffer, Color, Family, FontSystem, Metrics, Resolution, Shaping, SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer};
 use glyphon::fontdb::Source;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
@@ -32,6 +34,8 @@ const VERTICES: &[Vertex] = &[
     Vertex {
         position: [-1.0, 1.0],
     },
+    Vertex::null(),
+    Vertex::null(),
 ];
 
 const SCALE: f32 = 1f32 / 4f32;
@@ -47,7 +51,7 @@ pub struct Renderer {
     queue: wgpu::Queue,
     render_texture: wgpu::Texture,
     size: winit::dpi::PhysicalSize<u32>,
-    surface: wgpu::Surface,
+    surface: wgpu::Surface<'static>,
     texture_bind_group: wgpu::BindGroup,
     texture_render_pipeline: wgpu::RenderPipeline,
     text_atlas: TextAtlas,
@@ -59,18 +63,18 @@ pub struct Renderer {
     uniforms_buffer: wgpu::Buffer,
     uniforms_buffer_bind_group: wgpu::BindGroup,
     vertex_buffer: wgpu::Buffer,
-    window: &'static Window,
+    //window: Box<&'static Window>,
     score: Score,
-    next_tetro: Option<Tetromino>
+    next_tetro: Option<Tetromino>,
 }
 
 impl Renderer {
-    pub(crate) async fn new(window: &Window) -> Renderer {
+    pub(crate) async fn new(window: &Window) -> Self {
         // Pointer hack to be able to get a constant reference to the window...
         // I'm not sure if this is the best way to do this, buuut it works.
         // TODO: Could try to instead use an Arc<Window>, might be safer...
         let window = window as *const Window;
-        let window = unsafe { &*window };
+        let window : Box<&Window> = unsafe { Box::new(&*window) };
 
         let size = window.inner_size();
 
@@ -79,7 +83,7 @@ impl Renderer {
             ..Default::default()
         });
 
-        let surface = unsafe { instance.create_surface(&window) }.unwrap();
+        let surface = instance.create_surface(window).unwrap();
 
         let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::default(),
@@ -88,11 +92,14 @@ impl Renderer {
         }).await
             .unwrap();
 
+        let mut limits = wgpu::Limits::downlevel_webgl2_defaults();
+        limits.max_texture_dimension_2d = 8192;
+
         let (device, queue) = adapter.request_device(
             &wgpu::DeviceDescriptor {
                 label: None,
-                features: wgpu::Features::empty(),
-                limits: wgpu::Limits::downlevel_webgl2_defaults(),
+                required_features: wgpu::Features::empty(),
+                required_limits: wgpu::Limits::default(),
             },
             None,
         ).await
@@ -104,8 +111,6 @@ impl Renderer {
             .formats
             .iter()
             .copied()
-            // .filter(|f| f.is_srgb())
-            // .next()
             .find(TextureFormat::is_srgb)
             .unwrap_or(surface_capabilities.formats[0]);
 
@@ -115,6 +120,7 @@ impl Renderer {
             width: size.width,
             height: size.height,
             present_mode: surface_capabilities.present_modes[0],
+            desired_maximum_frame_latency: 2,
             alpha_mode: surface_capabilities.alpha_modes[0],
             view_formats: vec![],
         };
@@ -366,21 +372,20 @@ impl Renderer {
             texture_bind_group,
             score: Score::default(),
             next_tetro: None,
-            window,
         }
     }
 
-    pub(crate) fn resize(&mut self, new_size: LogicalSize<f32>, physical: PhysicalSize<u32>) {
-        info!("Resizing sf: {}, ns: {:?}", self.window.scale_factor(), new_size);
+    pub(crate) fn resize(&mut self, physical: PhysicalSize<u32>) {
+        //info!("Resizing sf: {}, ns: {:?}", self.window.scale_factor(), new_size);
         //let physical = new_size.to_physical(self.window.scale_factor());
         if physical.width > 0 && physical.height > 0 {
             self.size = physical;
             self.config.width = physical.width;
             self.config.height = physical.height;
             self.uniforms.window_size = [physical.width as f32, physical.height as f32];
-            self.uniforms.window_scale = self.window.scale_factor() as f32;
+            //self.uniforms.window_scale = self.window.scale_factor() as f32;
             self.surface.configure(&self.device, &self.config);
-            self.window.request_redraw();
+            //self.window.request_redraw();
         }
     }
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -481,6 +486,12 @@ struct Vertex {
 }
 
 impl Vertex {
+
+    const fn null() -> Self {
+        Self {
+            position: [0.0, 0.0],
+        }
+    }
     const ATTRIBS: [wgpu::VertexAttribute; 2] =
         wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
 
@@ -560,24 +571,23 @@ pub fn render(
     mut buffer_update: ResMut<BufferUpdate>,
     _commands: Commands,
     game: Res<TetrisGame>,
-    queue: Res<TetroQueue>
+    queue: Res<TetroQueue>,
+    instant: Res<Time<Fixed>>,
+    mut frame_count: Local<u32>,
+    mut last_time: Local<f32>,
 ) {
-    //static mut FRAME_COUNT: u32 = 0;
-    //static mut LAST_TIME: f32 = 0.0;
+    *frame_count += 1;
+    let elapsed = instant.elapsed_seconds_wrapped();
+    if elapsed - *last_time >= 1.0 {
+        info!("FPS: {}", *frame_count);
+        *frame_count = 0;
+        *last_time = elapsed;
+    }
 
-    //let start_time = Instant::now();
-
-    //unsafe {
-    //    FRAME_COUNT += 1;
-    //    let elapsed = time.elapsed_seconds_wrapped();
-    //    if elapsed - LAST_TIME >= 1.0 {
-    //        println!("FPS: {}", FRAME_COUNT);
-    //        FRAME_COUNT = 0;
-    //        LAST_TIME = elapsed;
-    //    }
-    //}
-
-    buffer_update.0 = true; // TODO: remove this and fix the buffer update logic. This is just to get it working not - performance isn't a concern right now
+    buffer_update.0 = true;
+    // TODO: remove this and fix the buffer update logic.
+    //  This is just to get it working not - performance isn't a concern right now
+    //  Aaaaand I don't ever want to deal with memory fragmentation...
 
     let vec = if buffer_update.0 {
         tetrs
@@ -622,6 +632,7 @@ pub fn render(
     renderer
         .queue
         .write_buffer(&renderer.uniforms_buffer, 0, renderer.uniforms.as_bytes());
+
     renderer.render().unwrap();
 
     //let elapsed_time = start_time.elapsed();
@@ -648,7 +659,7 @@ pub fn render_events(
         renderer
             .queue
             .write_buffer(&renderer.uniforms_buffer, 0, renderer.uniforms.as_bytes());
-        renderer.render().unwrap();
+        // renderer.render().unwrap();
     });
     resize.read().for_each(|event| {
         // event.window

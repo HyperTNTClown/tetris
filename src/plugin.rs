@@ -1,15 +1,20 @@
 use std::process::exit;
-use crate::components::{BufferUpdate, Glitch, Locked, Position, Score, Tetr, TetrisGame, Tetromino, TetroQueue, Updated};
+use async_std::task;
+use crate::components::{BufferUpdate, Glitch, Locked, Position, RenderMarker, Score, Tetr, TetrisGame, Tetromino, TetroQueue, Updated};
 use crate::render::{render, render_events, Renderer};
 use bevy::app::{App, MainScheduleOrder, PostUpdate, Startup};
 use bevy::ecs::schedule::{ExecutorKind, ScheduleLabel};
+use bevy::input::keyboard::KeyboardInput;
 use bevy::prelude::*;
 use bevy::tasks::block_on;
 use bevy::time::TimerMode;
 use bevy::winit::{winit_runner, WinitWindows};
+use bevy_async_task::AsyncTask;
 use bevy_turborand::{DelegatedRng, GlobalRng};
 use bevy_turborand::prelude::{RngPlugin};
+use extend_lifetime::{extend_lifetime, ExtendableLife};
 use log::log;
+use wasm_bindgen_futures::spawn_local;
 use winit::window::Window;
 
 pub(crate) struct Plugin;
@@ -21,11 +26,12 @@ impl bevy::app::Plugin for Plugin {
     fn build(&self, app: &mut App) {
         let mut render_sched = Schedule::new(Render);
         render_sched.set_executor_kind(ExecutorKind::SingleThreaded);
-        render_sched.add_systems(render_events);
-        render_sched.add_systems(render.after(render_events));
+        render_sched.add_systems(render_events.run_if(resource_exists::<RenderMarker>));
+        render_sched.add_systems(render.run_if(resource_exists::<RenderMarker>).after(render_events));
 
         app.add_schedule(render_sched)
             .add_plugins(RngPlugin::default())
+            .add_systems(Startup, setup)
             .add_systems(Startup, setup_rendering)
             .add_systems(Update, move_piece)
             .add_systems(PostUpdate, update_board)
@@ -40,7 +46,19 @@ impl bevy::app::Plugin for Plugin {
     }
 }
 
+fn setup(mut commands: Commands, rand: ResMut<GlobalRng>) {
+    let mut queue = TetroQueue::default();
+    queue.fill_queue(rand.into_inner());
+    commands.insert_resource(queue);
+    commands.insert_resource(MovePieceTimer(Timer::from_seconds(
+        1.0,
+        TimerMode::Repeating,
+    )));
+    commands.insert_resource(Glitch::default());
+}
+
 fn setup_rendering(world: &mut World) {
+    //let world = unsafe { extend_lifetime(world) };
     let window_map = world.get_non_send_resource::<WinitWindows>().unwrap();
     let window = window_map
         .windows
@@ -48,30 +66,20 @@ fn setup_rendering(world: &mut World) {
         .collect::<Vec<&Window>>()
         .as_slice()[0];
 
-    let mut renderer = block_on(Renderer::new(window));
-    renderer.resize(window.inner_size().to_logical(1.0), window.inner_size());
-    // if on wasm32
-    // if cfg!(target_arch = "wasm32") {
-    //     renderer.resize(winit::dpi::PhysicalSize::new(1280, 1440).to_logical(1.0));
-    // } else {
-    //     renderer.resize(window.inner_size().to_logical(1.0));
-    // }
+    let ewindow = unsafe { window.extend_lifetime() };
+    let mut renderer = AsyncTask::new(async move {
+        let mut r = Renderer::new(&ewindow).await;
+        r.resize(ewindow.inner_size());
+        r
+    }).blocking_recv();
+    // let mut renderer = block_on(Renderer::new(window));
+    info!("Renderer created!");
+    // renderer.resize(window.inner_size());
+    // let mut renderer = world.get_non_send_resource_mut::<Renderer>().unwrap();
+    // renderer.into_inner().resize(window.inner_size().to_logical(1.0), window.inner_size());
     world.insert_non_send_resource(renderer);
-    //world.insert_resource(Score::default());
-
-    let rand = world.get_resource_mut::<GlobalRng>().unwrap();
-
-    let mut queue = TetroQueue::default();
-    queue.fill_queue(rand.into_inner());
-    println!("{:?}", queue.len());
-    world.insert_resource(queue);
-
-    world.insert_resource(MovePieceTimer(Timer::from_seconds(
-        1.0,
-        TimerMode::Repeating,
-    )));
-
-    world.insert_resource(Glitch::default());
+    world.insert_resource(Score::default());
+    world.insert_resource(RenderMarker);
 
     info!("Rendering is set up!");
 }
@@ -84,7 +92,7 @@ fn move_piece(
     game: ResMut<TetrisGame>,
     time: Res<Time>,
     mut timer: ResMut<MovePieceTimer>,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
 ) {
     timer.0.tick(time.delta());
 
@@ -98,7 +106,7 @@ fn move_piece(
     }
 
     // FIXME: Fix moving into other pieces sideways
-    if input.just_pressed(KeyCode::Left) {
+    if input.just_pressed(KeyCode::ArrowLeft) {
         for (mut tetr, mut updated) in query.iter_mut() {
             let pos = tetr.positions.clone();
             tetr.positions.iter_mut().for_each(|p| p.x -= 1);
@@ -109,7 +117,7 @@ fn move_piece(
         }
     }
 
-    if input.just_pressed(KeyCode::Right) {
+    if input.just_pressed(KeyCode::ArrowRight) {
         for (mut tetr, mut updated) in query.iter_mut() {
             let pos = tetr.positions.clone();
             tetr.positions.iter_mut().for_each(|p| p.x += 1);
@@ -120,14 +128,14 @@ fn move_piece(
         }
     }
 
-    if input.just_pressed(KeyCode::Down) {
+    if input.just_pressed(KeyCode::ArrowDown) {
         for (mut tetr, mut updated) in query.iter_mut() {
             tetr.positions.iter_mut().for_each(|p| p.y -= 1);
             updated.0 = true;
         }
     }
 
-    if input.just_pressed(KeyCode::Up) {
+    if input.just_pressed(KeyCode::ArrowUp) {
         for (mut tetr, _) in query.iter_mut() {
             tetr.spin();
         }

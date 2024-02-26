@@ -6,6 +6,9 @@ use bevy_turborand::{DelegatedRng, GlobalRng};
 #[derive(Resource)]
 pub struct BufferUpdate(pub(crate) bool);
 
+#[derive(Resource)]
+pub struct RenderMarker;
+
 #[derive(Component)]
 pub struct Updated(pub(crate) bool);
 
@@ -505,7 +508,7 @@ impl Tetromino {
     pub fn as_drawables(&self) -> Vec<Drawable> {
         let mut drawables = Vec::new();
         for position in self.start_positions() {
-            let mut data = vec![0.5f32, 0.5f32, 0.5f32, 0.0, self.color()[0], self.color()[1], self.color()[2]];
+            let mut data = vec![0.125f32, 0.125f32, 0.05f32, 0.0, self.color()[0], self.color()[1], self.color()[2]];
             data.resize(8, 0.0);
             let d = Drawable::with_shape_data(position.x as isize, position.y as isize, 6, data.try_into().unwrap(), Some(2));
             drawables.push(d);
@@ -534,7 +537,7 @@ impl Tetr {
     pub fn as_drawables(&self) -> Vec<Drawable> {
         let mut drawables = Vec::new();
         for position in &self.positions {
-            let mut data = vec![0.5f32, 0.5f32, 0.5f32, 0.0, self.tetromino.color()[0], self.tetromino.color()[1], self.tetromino.color()[2]];
+            let mut data = vec![0.125f32, 0.125f32, 0.05f32, 0.0, self.tetromino.color()[0], self.tetromino.color()[1], self.tetromino.color()[2]];
             data.resize(8, 0.0);
             let d = Drawable::with_shape_data(position.x as isize, position.y as isize, 6, data.try_into().unwrap(), Some(2));
             drawables.push(d);
